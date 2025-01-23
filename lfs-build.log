@@ -1,5 +1,9 @@
 Inicializando variables...
 mode of '/lfs/sources' retained as 1777 (rwxrwxrwt)
+[H[2J[3JConstrucción de herramientas temporales completada.
+
+Se pasa a modo chroot. Ejecute el script (desde el raíz) con la opción 'buildbase' para continuar.
+
 './lfs-build.sh' -> '/lfs/lfs-build.sh'
 mount: tmpfs mounted on /lfs/dev/shm.
 [H[2J[3JLinux From Scratch Automation Script
@@ -12,6 +16,31 @@ Ejecute el script con la opción 'continue' para continuar.
 [H[2J[3JLinux From Scratch Automation Script
 Fegor's Creation Distribution for Linux
 
-changed group of '/var/log/lastlog' from root to utmp
-mode of '/var/log/lastlog' changed from 0644 (rw-r--r--) to 0664 (rw-rw-r--)
-mode of '/var/log/btmp' changed from 0644 (rw-r--r--) to 0600 (rw-------)
+group of '/var/log/lastlog' retained as utmp
+mode of '/var/log/lastlog' retained as 0664 (rw-rw-r--)
+mode of '/var/log/btmp' retained as 0600 (rw-------)
+checking for a BSD-compatible install... /usr/bin/install -c
+checking whether build environment is sane... yes
+checking for a race-free mkdir -p... /usr/bin/mkdir -p
+checking for gawk... gawk
+checking whether make sets $(MAKE)... yes
+checking whether make supports nested variables... yes
+checking whether UID '0' is supported by ustar format... yes
+checking whether GID '0' is supported by ustar format... yes
+checking how to create a ustar tar archive... gnutar
+checking build system type... x86_64-pc-linux-gnu
+checking host system type... x86_64-pc-linux-gnu
+checking that generated files are newer than configure... done
+configure: creating ./config.status
+config.status: creating Makefile
+config.status: creating gnulib-local/Makefile
+=== configuring in gettext-runtime (/sources/gettext-0.22.5/gettext-runtime)
+configure: running /bin/sh ./configure --disable-option-checking '--prefix=/usr/local'  '--disable-shared' --cache-file=/dev/null --srcdir=.
+checking for a BSD-compatible install... /usr/bin/install -c
+checking whether build environment is sane... yes
+checking for a race-free mkdir -p... /usr/bin/mkdir -p
+checking for gawk... gawk
+checking whether make sets $(MAKE)... yes
+checking whether make supports nested variables... yes
+checking for gcc... gcc
+checking whether the C compiler works... no
