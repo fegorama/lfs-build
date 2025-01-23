@@ -5,19 +5,22 @@
 
 set -e
 
-# Variables globales
+# Global variables
 INSTALL_PATH="/lfs"
 LFS_USER="lfs"
 LFS_VERSION="12.2"  # Cambia según la versión de LFS
 LOG_FILE="lfs-build.log"
+ACTION=""
 
 # Función para mostrar ayuda
 usage() {
-    echo "Uso: $0 -p <path_instalacion> -u <usuario> [-v <version>] [-h]"
-    echo "  -p    Path donde se instalará LFS"
-    echo "  -u    Usuario para la instalación inicial (primera fase) - se recomienda usar lfs"
-    echo "  -v    Versión de Linux From Scratch (por defecto: $LFS_VERSION)"
-    echo "  -h    Mostrar esta ayuda"
+    echo "Uso: $0 <buildtools|buildbase> -p <path_instalacion> -u <usuario> [-v <version>] [-h]"
+    echo "  buildtools    Construir herramientas temporales"
+    echo "  buildbase     Construir el sistema base"
+    echo "  -p            Path donde se instalará LFS"
+    echo "  -u            Usuario para la instalación inicial (primera fase) - se recomienda usar lfs"
+    echo "  -v            Versión de Linux From Scratch (por defecto: $LFS_VERSION)"
+    echo "  -h            Mostrar esta ayuda"
     echo ""
     echo "Ejecutar este comando como root."
     exit 1
@@ -111,27 +114,27 @@ EOF
 # Función para construir herramientas temporales
 build_temporary_tools() {
     echo "Construyendo herramientas temporales..."
-    #temp_binutils_pass1
-    #temp_gcc_pass1
-    #temp_linux_api_headers
-    #temp_gclib
-    #temp_libstdcxx
-    #temp_m4
-    #temp_ncurses
-    #temp_bash
-    #temp_coreutils
-    #temp_diffutils
-    #temp_file
-    #temp_findutils
-    #temp_gawk
-    #temp_grep
-    #temp_gzip
-    #temp_make
-    #temp_patch
-    #temp_sed
-    #temp_tar
-    #temp_xz
-    #temp_binutils_pass2
+    temp_binutils_pass1
+    temp_gcc_pass1
+    temp_linux_api_headers
+    temp_gclib
+    temp_libstdcxx
+    temp_m4
+    temp_ncurses
+    temp_bash
+    temp_coreutils
+    temp_diffutils
+    temp_file
+    temp_findutils
+    temp_gawk
+    temp_grep
+    temp_gzip
+    temp_make
+    temp_patch
+    temp_sed
+    temp_tar
+    temp_xz
+    temp_binutils_pass2
     temp_gcc_pass2
    
 }
@@ -552,8 +555,8 @@ EOF
 }
 
 channing_ownership() {
-    echo "Channging ownership of LFS directories..."
-    chown --from lfs -R root:root $LFS/{usr,lib,var,etc,bin,sbin,tools}
+    cp -vr ./lfs-build.sh $LFS
+    chown --from lfs -R root:root $LFS/{usr,lib,var,etc,bin,sbin,tools,root}
     case $(uname -m) in
         x86_64) chown --from lfs -R root:root $LFS/lib64 ;;
     esac
@@ -561,15 +564,25 @@ channing_ownership() {
 
 virtual_kernel_fs() {
     mkdir -pv $LFS/{dev,proc,sys,run}
-    mount -v --bind /dev $LFS/dev
-    mount -vt devpts devpts -o gid=5,mode=0620 $LFS/dev/pts
-    mount -vt proc proc $LFS/proc
-    mount -vt sysfs sysfs $LFS/sys
-    mount -vt tmpfs tmpfs $LFS/run
+    if ! mountpoint -q "/dev"; then
+        mount -v --bind /dev $LFS/dev
+    fi
+    if ! mountpoint -q "/dev/pts"; then
+        mount -vt devpts devpts -o gid=5,mode=0620 $LFS/dev/pts
+    fi
+    if ! mountpoint -q "/proc"; then
+        mount -vt proc proc $LFS/proc
+    fi
+    if ! mountpoint -q "/sys"; then
+        mount -vt sysfs sysfs $LFS/sys
+    fi
+    if ! mountpoint -q "/run"; then
+        mount -vt tmpfs tmpfs $LFS/run
+    fi
     if [ -h $LFS/dev/shm ]; then
-    install -v -d -m 1777 $LFS$(realpath /dev/shm)
+        install -v -d -m 1777 $LFS$(realpath /dev/shm)
     else
-    mount -vt tmpfs -o nosuid,nodev tmpfs $LFS/dev/shm
+        mount -vt tmpfs -o nosuid,nodev tmpfs $LFS/dev/shm
     fi
 }
 
@@ -598,46 +611,156 @@ create_directories() {
     mkdir -pv /var/{cache,local,log,mail,opt,spool}
     mkdir -pv /var/lib/{color,misc,locate}
 
-    ln -sfv /run /var/run
-    ln -sfv /run/lock /var/lock
+    if [ ! -L /var/run ]; then
+        ln -sfv /run /var/run
+    fi
+
+    if [ ! -L /var/lock ]; then
+        lfn -sfv /run/lock /var/lock
+    fi
 
     install -dv -m 0750 /root
     install -dv -m 1777 /tmp /var/tmp    
 }
 
-build_temporary_tools(){
+build_temporary_tools_chroot(){
     channing_ownership
     virtual_kernel_fs
     chroot_environment
-    create_directories
+}
+
+creating_essential_files_links() {
+    if [ ! -L /etc/mtab ]; then
+        ln -sfv /proc/self/mounts /etc/mtab
+    fi
+
+    cat > /etc/hosts << EOF
+127.0.0.1  localhost $(hostname)
+::1        localhost
+EOF
+
+cat > /etc/passwd << "EOF"
+root:x:0:0:root:/root:/bin/bash
+bin:x:1:1:bin:/dev/null:/usr/bin/false
+daemon:x:6:6:Daemon User:/dev/null:/usr/bin/false
+messagebus:x:18:18:D-Bus Message Daemon User:/run/dbus:/usr/bin/false
+uuidd:x:80:80:UUID Generation Daemon User:/dev/null:/usr/bin/false
+nobody:x:65534:65534:Unprivileged User:/dev/null:/usr/bin/false
+EOF
+
+cat > /etc/group << "EOF"
+root:x:0:
+bin:x:1:daemon
+sys:x:2:
+kmem:x:3:
+tape:x:4:
+tty:x:5:
+daemon:x:6:
+floppy:x:7:
+disk:x:8:
+lp:x:9:
+dialout:x:10:
+audio:x:11:
+video:x:12:
+utmp:x:13:
+cdrom:x:15:
+adm:x:16:
+messagebus:x:18:
+input:x:24:
+mail:x:34:
+kvm:x:61:
+uuidd:x:80:
+wheel:x:97:
+users:x:999:
+nogroup:x:65534:
+EOF
+
+localedef -i C -f UTF-8 C.UTF-8
+
+echo "tester:x:101:101::/home/tester:/bin/bash" >> /etc/passwd
+echo "tester:x:101:" >> /etc/group
+install -o tester -d /home/tester
+
+clear
+echo "Ahora se va ejecutar un nuevo sheel para continuar con la construcción del sistema base."
+echo ""
+echo "Ejecute el script con la opción 'continue' para continuar."
+echo ""
+
+exec /usr/bin/bash --login
+}
+
+creating_essential_files_links2() {
+    touch /var/log/{btmp,lastlog,faillog,wtmp}
+    chgrp -v utmp /var/log/lastlog
+    chmod -v 664  /var/log/lastlog
+    chmod -v 600  /var/log/btmp   
+}
+
+notify_build_base() {
+    clear
+    echo "Construcción de herramientas temporales completada."
+    echo ""
+    echo "Se pasa a modo chroot. Ejecute el script (desde el raíz) con la opción 'buildbase' para continuar."
+    echo ""
+}
+
+# Función para construir herramientas temporales
+buildtools() {
+    initialize
+#TODO descomentar en la versión final.    
+    #check_dependencies
+    #download_sources
+    #prepare_environment
+    #build_temporary_tools
+    #notify_build_base
+    build_temporary_tools_chroot
 }
 
 # Función para construir el sistema base
-build_base_system() {
-    echo "Construyendo el sistema base..."
-    # Aquí incluirías los pasos para construir el sistema base según el libro LFS.
+buildbase() {
+    create_directories
+    creating_essential_files_links
+    echo "Instalación completada. Revisa el log en $LOG_FILE para más detalles."
 }
 
-# Función para configurar el sistema
-configure_system() {
-    echo "Configurando el sistema..."
-    # Incluye comandos para configurar los scripts de arranque, kernel, etc.
+# Función para continuar con la construcción del sistema base
+buildbase_continue() {
+    touch /var/log/{btmp,lastlog,faillog,wtmp}
+    chgrp -v utmp /var/log/lastlog
+    chmod -v 664  /var/log/lastlog
+    chmod -v 600  /var/log/btmp
 }
 
 # Función principal
 main() {
     check_root
-    initialize
-    check_dependencies
-    download_sources
-    prepare_environment
-    build_temporary_tools
-    build_base_system
-    configure_system
-    echo "Instalación completada. Revisa el log en $LOG_FILE para más detalles."
+
+    if [ "$ACTION" == "buildtools" ]; then
+        buildtools
+    elif [ "$ACTION" == "buildbase" ]; then
+        buildbase
+    elif [ "$ACTION" == "continue" ]; then
+        buildbase_continue        
+    else
+        echo "Acción no válida: $ACTION"
+        usage
+    fi
 }
 
-# Procesar argumentos
+# Process arguments
+if [[ $# -lt 1 ]]; then
+    usage
+fi
+
+ACTION="$1"
+shift
+
+clear
+echo "Linux From Scratch Automation Script"
+echo "Fegor's Creation Distribution for Linux"
+echo ""
+
 while getopts "p:u:v:h" opt; do
     case "$opt" in
         p) INSTALL_PATH="$OPTARG" ;;
@@ -649,6 +772,11 @@ while getopts "p:u:v:h" opt; do
 done
 
 # Validar parámetros requeridos
+if [[ -z "$ACTION" || ( "$ACTION" != "buildtools" && "$ACTION" != "buildbase" && "$ACTION" != "continue") ]]; then
+    echo "Error: La primera opción debe ser 'buildtools', 'buildbase' o 'continue'."
+    usage
+fi
+
 if [[ -z "$INSTALL_PATH" || -z "$LFS_USER" ]]; then
     echo "Error: path de instalación y usuario son requeridos."
     usage

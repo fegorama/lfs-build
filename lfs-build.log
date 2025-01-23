@@ -1,0 +1,17 @@
+Inicializando variables...
+mode of '/lfs/sources' retained as 1777 (rwxrwxrwt)
+'./lfs-build.sh' -> '/lfs/lfs-build.sh'
+mount: tmpfs mounted on /lfs/dev/shm.
+[H[2J[3JLinux From Scratch Automation Script
+Fegor's Creation Distribution for Linux
+
+[H[2J[3JAhora se va ejecutar un nuevo sheel para continuar con la construcción del sistema base.
+
+Ejecute el script con la opción 'continue' para continuar.
+
+[H[2J[3JLinux From Scratch Automation Script
+Fegor's Creation Distribution for Linux
+
+changed group of '/var/log/lastlog' from root to utmp
+mode of '/var/log/lastlog' changed from 0644 (rw-r--r--) to 0664 (rw-rw-r--)
+mode of '/var/log/btmp' changed from 0644 (rw-r--r--) to 0600 (rw-------)
