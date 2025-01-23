@@ -551,6 +551,67 @@ ln -sv gcc $LFS/usr/bin/cc
 EOF
 }
 
+channing_ownership() {
+    echo "Channging ownership of LFS directories..."
+    chown --from lfs -R root:root $LFS/{usr,lib,var,etc,bin,sbin,tools}
+    case $(uname -m) in
+        x86_64) chown --from lfs -R root:root $LFS/lib64 ;;
+    esac
+}   
+
+virtual_kernel_fs() {
+    mkdir -pv $LFS/{dev,proc,sys,run}
+    mount -v --bind /dev $LFS/dev
+    mount -vt devpts devpts -o gid=5,mode=0620 $LFS/dev/pts
+    mount -vt proc proc $LFS/proc
+    mount -vt sysfs sysfs $LFS/sys
+    mount -vt tmpfs tmpfs $LFS/run
+    if [ -h $LFS/dev/shm ]; then
+    install -v -d -m 1777 $LFS$(realpath /dev/shm)
+    else
+    mount -vt tmpfs -o nosuid,nodev tmpfs $LFS/dev/shm
+    fi
+}
+
+chroot_environment() {
+    chroot "$LFS" /usr/bin/env -i   \
+    HOME=/root                  \
+    TERM="$TERM"                \
+    PS1='(lfs chroot) \u:\w\$ ' \
+    PATH=/usr/bin:/usr/sbin     \
+    MAKEFLAGS="-j$(nproc)"      \
+    TESTSUITEFLAGS="-j$(nproc)" \
+    /bin/bash --login
+}
+
+create_directories() {
+    mkdir -pv /{boot,home,mnt,opt,srv}
+    mkdir -pv /etc/{opt,sysconfig}
+    mkdir -pv /lib/firmware
+    mkdir -pv /media/{floppy,cdrom}
+    mkdir -pv /usr/{,local/}{include,src}
+    mkdir -pv /usr/lib/locale
+    mkdir -pv /usr/local/{bin,lib,sbin}
+    mkdir -pv /usr/{,local/}share/{color,dict,doc,info,locale,man}
+    mkdir -pv /usr/{,local/}share/{misc,terminfo,zoneinfo}
+    mkdir -pv /usr/{,local/}share/man/man{1..8}
+    mkdir -pv /var/{cache,local,log,mail,opt,spool}
+    mkdir -pv /var/lib/{color,misc,locate}
+
+    ln -sfv /run /var/run
+    ln -sfv /run/lock /var/lock
+
+    install -dv -m 0750 /root
+    install -dv -m 1777 /tmp /var/tmp    
+}
+
+build_temporary_tools(){
+    channing_ownership
+    virtual_kernel_fs
+    chroot_environment
+    create_directories
+}
+
 # Función para construir el sistema base
 build_base_system() {
     echo "Construyendo el sistema base..."
