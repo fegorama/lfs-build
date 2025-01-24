@@ -4,6 +4,7 @@
 # Fegor's Creation Distribution for Linux
 
 set -e
+#set -x
 
 # Global variables
 INSTALL_PATH="/lfs"
@@ -50,12 +51,14 @@ check_dependencies() {
 
 # Función para descargar paquetes
 download_sources() {
+    set +e
     echo "Descargando fuentes..."
     wget --continue --no-clobber --input-file=./wget-list-sysv --continue --directory-prefix=$LFS/sources
     cp ./md5sums $LFS/sources
     pushd $LFS/sources
         md5sum -c md5sums
     popd
+    set -e
 }
 
 # Función para configurar el entorno de construcción
@@ -557,7 +560,7 @@ EOF
 
 channing_ownership() {
     cp -vr ./lfs-build.sh $LFS
-    chown --from lfs -R root:root $LFS/{usr,lib,var,etc,bin,sbin,tools,root}
+    chown --from lfs -R root:root $LFS/{usr,lib,var,etc,bin,sbin,tools}
     case $(uname -m) in
         x86_64) chown --from lfs -R root:root $LFS/lib64 ;;
     esac
@@ -565,25 +568,26 @@ channing_ownership() {
 
 virtual_kernel_fs() {
     mkdir -pv $LFS/{dev,proc,sys,run}
-    if ! mountpoint -q "/dev"; then
+    if ! mountpoint -q "/$LFS/dev"; then
         mount -v --bind /dev $LFS/dev
     fi
-    if ! mountpoint -q "/dev/pts"; then
+    if ! mountpoint -q "$LFS/dev/pts"; then
         mount -vt devpts devpts -o gid=5,mode=0620 $LFS/dev/pts
     fi
-    if ! mountpoint -q "/proc"; then
+    if ! mountpoint -q "$LFS/proc"; then
         mount -vt proc proc $LFS/proc
     fi
-    if ! mountpoint -q "/sys"; then
+    if ! mountpoint -q "$LFS/sys"; then
         mount -vt sysfs sysfs $LFS/sys
     fi
-    if ! mountpoint -q "/run"; then
+    if ! mountpoint -q "$LFS/run"; then
         mount -vt tmpfs tmpfs $LFS/run
     fi
-    if [ -h $LFS/dev/shm ]; then
-        install -v -d -m 1777 $LFS$(realpath /dev/shm)
+    #if [ -h $LFS/dev/shm ]; then
+    if mountpoint -q "$LFS/dev/shm"; then
+    install -v -d -m 1777 $LFS$(realpath /dev/shm)
     else
-        mount -vt tmpfs -o nosuid,nodev tmpfs $LFS/dev/shm
+    mount -vt tmpfs -o nosuid,nodev tmpfs $LFS/dev/shm
     fi
 }
 
@@ -617,7 +621,7 @@ create_directories() {
     fi
 
     if [ ! -L /var/lock ]; then
-        lfn -sfv /run/lock /var/lock
+        ln -sfv /run/lock /var/lock
     fi
 
     install -dv -m 0750 /root
@@ -714,6 +718,7 @@ buildtools() {
     #download_sources
     #prepare_environment
     #build_temporary_tools
+
     notify_build_base
     build_temporary_tools_chroot
 }
@@ -735,7 +740,7 @@ build_gettext() {
 
 build_bison() {
     cd /sources
-    tar bison-3.8.2.tar.xz && cd bison-3.8.2
+    tar -xf bison-3.8.2.tar.xz && cd bison-3.8.2
     ./configure --prefix=/usr \
             --docdir=/usr/share/doc/bison-3.8.2    
     make && make install
@@ -792,7 +797,7 @@ build_util_linux() {
                 ADJTIME_PATH=/var/lib/hwclock/adjtime \
                 --docdir=/usr/share/doc/util-linux-2.40.2
     make && make install
-}   
+}
 
 cleaning_and_backup() {
     rm -rf /usr/share/{info,man,doc}/*
@@ -803,20 +808,176 @@ cleaning_and_backup() {
     #       parámetros: backup, restore y continue_after_backup
 }
 
+#package_management() {
+#    #TODO: Instalar gestor de paquetes
+#}
+
+install_man_pages() {
+    cd /sources
+    tar -xf man-pages-6.9.1.tar.xz && cd man-pages-6.9.1
+    rm -v man3/crypt*
+    make prefix=/usr install
+}
+
+install_iana_etc() {
+    cd /sources
+    tar -xf iana-etc-20240806.tar.gz && cd iana-etc-20240806
+    cp services protocols /etc
+}
+
+install_glibc() {
+    cd /sources/glibc-2.40
+    set +e # Se desactiva la opción de parada por error
+    patch -Np1 -i ../glibc-2.40-fhs-1.patch
+    echo "Resultado de aplicar el path: $?"
+    set -e # Se activa la opción de parada por error
+    mv build build-pass-1
+    mkdir -v build && cd build
+    echo "rootsbindir=/usr/sbin" > configparms
+    ../configure --prefix=/usr                        \
+             --disable-werror                         \
+             --enable-kernel=4.19                     \
+             --enable-stack-protector=strong          \
+             --disable-nscd                           \
+             libc_cv_slibdir=/usr/lib
+    make && make check
+
+    grep "Timed out" $(find -name \*.out)
+    touch /etc/ld.so.conf
+    sed '/test-installation/s@$(PERL)@echo not running@' -i ../Makefile
+    make install
+    sed '/RTLDLIST=/s@/usr@@g' -i /usr/bin/ldd
+
+    #Configuración de localización
+
+    localedef -i C -f UTF-8 C.UTF-8
+    localedef -i cs_CZ -f UTF-8 cs_CZ.UTF-8
+    localedef -i de_DE -f ISO-8859-1 de_DE
+    localedef -i de_DE@euro -f ISO-8859-15 de_DE@euro
+    localedef -i de_DE -f UTF-8 de_DE.UTF-8
+    localedef -i el_GR -f ISO-8859-7 el_GR
+    localedef -i en_GB -f ISO-8859-1 en_GB
+    localedef -i en_GB -f UTF-8 en_GB.UTF-8
+    localedef -i en_HK -f ISO-8859-1 en_HK
+    localedef -i en_PH -f ISO-8859-1 en_PH
+    localedef -i en_US -f ISO-8859-1 en_US
+    localedef -i en_US -f UTF-8 en_US.UTF-8
+    localedef -i es_ES -f ISO-8859-15 es_ES@euro
+    localedef -i es_MX -f ISO-8859-1 es_MX
+    localedef -i fa_IR -f UTF-8 fa_IR
+    localedef -i fr_FR -f ISO-8859-1 fr_FR
+    localedef -i fr_FR@euro -f ISO-8859-15 fr_FR@euro
+    localedef -i fr_FR -f UTF-8 fr_FR.UTF-8
+    localedef -i is_IS -f ISO-8859-1 is_IS
+    localedef -i is_IS -f UTF-8 is_IS.UTF-8
+    localedef -i it_IT -f ISO-8859-1 it_IT
+    localedef -i it_IT -f ISO-8859-15 it_IT@euro
+    localedef -i it_IT -f UTF-8 it_IT.UTF-8
+    localedef -i ja_JP -f EUC-JP ja_JP
+    localedef -i ja_JP -f SHIFT_JIS ja_JP.SJIS 2> /dev/null || true
+    localedef -i ja_JP -f UTF-8 ja_JP.UTF-8
+    localedef -i nl_NL@euro -f ISO-8859-15 nl_NL@euro
+    localedef -i ru_RU -f KOI8-R ru_RU.KOI8-R
+    localedef -i ru_RU -f UTF-8 ru_RU.UTF-8
+    localedef -i se_NO -f UTF-8 se_NO.UTF-8
+    localedef -i ta_IN -f UTF-8 ta_IN.UTF-8
+    localedef -i tr_TR -f UTF-8 tr_TR.UTF-8
+    localedef -i zh_CN -f GB18030 zh_CN.GB18030
+    localedef -i zh_HK -f BIG5-HKSCS zh_HK.BIG5-HKSCS
+    localedef -i zh_TW -f UTF-8 zh_TW.UTF-8
+
+    make localedata/install-locales
+
+    localedef -i C -f UTF-8 C.UTF-8
+    localedef -i ja_JP -f SHIFT_JIS ja_JP.SJIS 2> /dev/null || true
+
+    # Configuración de ficheros
+
+    cat > /etc/nsswitch.conf << "EOF"
+# Begin /etc/nsswitch.conf
+
+passwd: files
+group: files
+shadow: files
+
+hosts: files dns
+networks: files
+
+protocols: files
+services: files
+ethers: files
+rpc: files
+
+# End /etc/nsswitch.conf
+EOF
+
+    # Configuración de tiempo
+
+    tar -xf ../../tzdata2024a.tar.gz
+
+    ZONEINFO=/usr/share/zoneinfo
+    mkdir -pv $ZONEINFO/{posix,right}
+
+    for tz in etcetera southamerica northamerica europe africa antarctica  \
+            asia australasia backward; do
+        zic -L /dev/null   -d $ZONEINFO       ${tz}
+        zic -L /dev/null   -d $ZONEINFO/posix ${tz}
+        zic -L leapseconds -d $ZONEINFO/right ${tz}
+    done
+
+    cp -v zone.tab zone1970.tab iso3166.tab $ZONEINFO
+    zic -d $ZONEINFO -p America/New_York
+    unset ZONEINFO
+
+    # TODO: parametrizar
+
+    tzselect
+    ln -sfv /usr/share/zoneinfo/Spain/Europe /etc/localtime
+
+    # Configuración de cargador dinámico
+
+    cat > /etc/ld.so.conf << "EOF"
+# Begin /etc/ld.so.conf
+/usr/local/lib
+/opt/lib
+
+EOF
+
+cat >> /etc/ld.so.conf << "EOF"
+# Add an include directory
+include /etc/ld.so.conf.d/*.conf
+
+EOF
+
+mkdir -pv /etc/ld.so.conf.d
+}
+
+installing_basic_system() {
+# TODO: descomentar en la versión final.
+    #package_management
+    #install_man_pages
+    #install_iana_etc
+    install_glibc
+
+}
+
 # Función para continuar con la construcción del sistema base
 buildbase_continue() {
-    touch /var/log/{btmp,lastlog,faillog,wtmp}
-    chgrp -v utmp /var/log/lastlog
-    chmod -v 664  /var/log/lastlog
-    chmod -v 600  /var/log/btmp
+#TODO: descomentar en la versión final.
+    #touch /var/log/{btmp,lastlog,faillog,wtmp}
+    #chgrp -v utmp /var/log/lastlog
+    #chmod -v 664  /var/log/lastlog
+    #chmod -v 600  /var/log/btmp
 
-    build_gettext
-    build_bison
-    build_perl
-    build_python
-    build_texinfo
-    build_util_linux
-    cleaning_and_backup
+    #build_gettext
+    #build_bison
+    #build_perl
+    #build_python
+    #build_texinfo
+    #build_util_linux
+    #cleaning_and_backup
+
+    installing_basic_system    
 
 }
 
