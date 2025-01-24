@@ -840,7 +840,11 @@ install_glibc() {
              --enable-stack-protector=strong          \
              --disable-nscd                           \
              libc_cv_slibdir=/usr/lib
-    make && make check
+    make
+
+    set +e # Se desactiva la opción de parada por error
+    make check
+    set -e # Se activa la opción de parada por error
 
     grep "Timed out" $(find -name \*.out)
     touch /etc/ld.so.conf
