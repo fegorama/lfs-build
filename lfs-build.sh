@@ -15,9 +15,10 @@ ACTION=""
 
 # Función para mostrar ayuda
 usage() {
-    echo "Uso: $0 <buildtools|buildbase> -p <path_instalacion> -u <usuario> [-v <version>] [-h]"
+    echo "Uso: $0 <buildtools|buildbase|builddist> -p <path_instalacion> -u <usuario> [-v <version>] [-h]"
     echo "  buildtools    Construir herramientas temporales"
-    echo "  buildbase     Construir el sistema base"
+    echo "  buildbase     Construir el sistema base para compilar LFS"
+    echo "  builddist     Construir el sistema base LFS"
     echo "  -p            Path donde se instalará LFS"
     echo "  -u            Usuario para la instalación inicial (primera fase) - se recomienda usar lfs"
     echo "  -v            Versión de Linux From Scratch (por defecto: $LFS_VERSION)"
@@ -829,8 +830,8 @@ install_glibc() {
     cd /sources/glibc-2.40
     set +e # Se desactiva la opción de parada por error
     patch -Np1 -i ../glibc-2.40-fhs-1.patch
-    echo "Resultado de aplicar el path: $?"
     set -e # Se activa la opción de parada por error
+
     mv build build-pass-1
     mkdir -v build && cd build
     echo "rootsbindir=/usr/sbin" > configparms
@@ -843,10 +844,10 @@ install_glibc() {
     make
 
     set +e # Se desactiva la opción de parada por error
-    make check
+    make check || false
     set -e # Se activa la opción de parada por error
 
-    grep "Timed out" $(find -name \*.out)
+#    grep "Timed out" $(find -name \*.out)  # TODO: Comprobar por qué se para aquí
     touch /etc/ld.so.conf
     sed '/test-installation/s@$(PERL)@echo not running@' -i ../Makefile
     make install
@@ -956,17 +957,169 @@ EOF
 mkdir -pv /etc/ld.so.conf.d
 }
 
+install_zlib() {
+    cd /sources
+    tar -xf zlib-1.3.1.tar.gz && cd zlib-1.3.1
+    ./configure --prefix=/usr
+    make && make check && make install
+    rm -fv /usr/lib/libz.a
+}
+
+install_bzip() {
+    cd /sources
+    tar -xf bzip2-1.0.8.tar.gz && cd bzip2-1.0.8
+    patch -Np1 -i ../bzip2-1.0.8-install_docs-1.patch
+    sed -i 's@\(ln -s -f \)$(PREFIX)/bin/@\1@' Makefile
+    sed -i "s@(PREFIX)/man@(PREFIX)/share/man@g" Makefile
+
+    make -f Makefile-libbz2_so
+    make clean
+    make
+    make PREFIX=/usr install
+
+    cp -av libbz2.so.* /usr/lib
+    ln -sv libbz2.so.1.0.8 /usr/lib/libbz2.so
+
+    cp -v bzip2-shared /usr/bin/bzip2
+    for i in /usr/bin/{bzcat,bunzip2}; do
+    ln -sfv bzip2 $i
+    done
+
+    rm -fv /usr/lib/libbz2.a
+}
+
+install_xz() {
+    cd /sources/xz-5.6.2
+    ./configure --prefix=/usr    \
+                --disable-static \
+                --docdir=/usr/share/doc/xz-5.6.2
+    make && make check && make install
+}
+
+install_lz4() {
+    cd /sources
+    tar -xf lz4-1.10.0.tar.gz && cd lz4-1.10.0
+    make BUILD_STATIC=no PREFIX=/usr
+    make -j1 check
+    make BUILD_STATIC=no PREFIX=/usr install
+}
+
+install_zstd() {
+    cd /sources
+    tar -xf zstd-1.5.6.tar.gz && cd zstd-1.5.6
+    make prefix=/usr
+    make check
+    make prefix=/usr install
+    rm -v /usr/lib/libzstd.a
+}
+
+install_file() {
+    cd /sources/file-5.45
+    ./configure --prefix=/usr
+    make && make check && make install
+}
+
+install_readline() {
+    cd /sources
+    tar -xf readline-8.2.13.tar.gz && cd readline-8.2.13
+    sed -i '/MV.*old/d' Makefile.in
+    sed -i '/{OLDSUFF}/c:' support/shlib-install
+    sed -i 's/-Wl,-rpath,[^ ]*//' support/shobj-conf
+    ./configure --prefix=/usr    \
+                --disable-static \
+                --with-curses     \
+                --docdir=/usr/share/doc/readline-8.2.13
+    make SHLIB_LIBS="-lncursesw"
+    make SHLIB_LIBS="-lncursesw" install
+    install -v -m644 doc/*.{ps,pdf,html,dvi} /usr/share/doc/readline-8.2.13
+}
+
+install_m4() {
+    cd /sources/m4-1.4.19
+    ./configure --prefix=/usr
+    make && make check && make install
+}
+
+install_bc() {
+    cd /sources
+    tar -xf bc-6.7.6.tar.xz && cd bc-6.7.6
+    CC=gcc ./configure --prefix=/usr -G -O3 -r
+    make && make test && make install
+}
+
+install_flex() {
+    cd /sources
+    tar -xf flex-2.6.4.tar.gz && cd flex-2.6.4
+    ./configure --prefix=/usr \
+            --docdir=/usr/share/doc/flex-2.6.4 \
+            --disable-static    
+    make && make check && make install
+    ln -sv flex   /usr/bin/lex
+    ln -sv flex.1 /usr/share/man/man1/lex.1
+}
+
+install_tcl() {
+    cd /sources
+    tar -xf tcl8.6.14-src.tar.gz && cd tcl8.6.14
+    SRCDIR=$(pwd)
+    cd unix
+    ./configure --prefix=/usr           \
+                --mandir=/usr/share/man \
+                --disable-rpath
+    make
+
+    sed -e "s|$SRCDIR/unix|/usr/lib|" \
+        -e "s|$SRCDIR|/usr/include|"  \
+        -i tclConfig.sh
+
+    sed -e "s|$SRCDIR/unix/pkgs/tdbc1.1.7|/usr/lib/tdbc1.1.7|" \
+        -e "s|$SRCDIR/pkgs/tdbc1.1.7/generic|/usr/include|"    \
+        -e "s|$SRCDIR/pkgs/tdbc1.1.7/library|/usr/lib/tcl8.6|" \
+        -e "s|$SRCDIR/pkgs/tdbc1.1.7|/usr/include|"            \
+        -i pkgs/tdbc1.1.7/tdbcConfig.sh
+
+    sed -e "s|$SRCDIR/unix/pkgs/itcl4.2.4|/usr/lib/itcl4.2.4|" \
+        -e "s|$SRCDIR/pkgs/itcl4.2.4/generic|/usr/include|"    \
+        -e "s|$SRCDIR/pkgs/itcl4.2.4|/usr/include|"            \
+        -i pkgs/itcl4.2.4/itclConfig.sh
+
+    unset SRCDIR
+
+    make test
+    make install
+    chmod -v u+w /usr/lib/libtcl8.6.so
+    make install-private-headers
+    ln -sfv tclsh8.6 /usr/bin/tclsh
+    mv /usr/share/man/man3/{Thread,Tcl_Thread}.3
+
+    cd ..
+    tar -xf ../tcl8.6.14-html.tar.gz --strip-components=1
+    mkdir -v -p /usr/share/doc/tcl-8.6.14
+    cp -v -r  ./html/* /usr/share/doc/tcl-8.6.14
+}
+
 installing_basic_system() {
 # TODO: descomentar en la versión final.
     #package_management
     #install_man_pages
     #install_iana_etc
-    install_glibc
+    #install_glibc
+    #install_zlib
+    #install_bzip
+    #install_xz
+    #install_lz4
+    #install_zstd
+    #install_file
+    #install_readline
+    #install_m4
+    #install_bc
+    install_flex
+    install_tcl
 
 }
 
 # Función para continuar con la construcción del sistema base
-buildbase_continue() {
+builddist() {
 #TODO: descomentar en la versión final.
     #touch /var/log/{btmp,lastlog,faillog,wtmp}
     #chgrp -v utmp /var/log/lastlog
@@ -993,8 +1146,8 @@ main() {
         buildtools
     elif [ "$ACTION" == "buildbase" ]; then
         buildbase
-    elif [ "$ACTION" == "continue" ]; then
-        buildbase_continue        
+    elif [ "$ACTION" == "builddist" ]; then
+        builddist        
     else
         echo "Acción no válida: $ACTION"
         usage
@@ -1025,8 +1178,8 @@ while getopts "p:u:v:h" opt; do
 done
 
 # Validar parámetros requeridos
-if [[ -z "$ACTION" || ( "$ACTION" != "buildtools" && "$ACTION" != "buildbase" && "$ACTION" != "continue") ]]; then
-    echo "Error: La primera opción debe ser 'buildtools', 'buildbase' o 'continue'."
+if [[ -z "$ACTION" || ( "$ACTION" != "buildtools" && "$ACTION" != "buildbase" && "$ACTION" != "builddist") ]]; then
+    echo "Error: La primera opción debe ser 'buildtools', 'buildbase' o 'builddist'."
     usage
 fi
 
