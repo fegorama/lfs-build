@@ -715,10 +715,10 @@ notify_build_base() {
 buildtools() {
     initialize
 #TODO descomentar en la versión final.    
-    #check_dependencies
-    #download_sources
-    #prepare_environment
-    #build_temporary_tools
+    check_dependencies
+    download_sources
+    prepare_environment
+    build_temporary_tools
 
     notify_build_base
     build_temporary_tools_chroot
@@ -1138,23 +1138,23 @@ install_pkgconf() {
 
 install_binutils() {
     cd /sources
-#    tar -xf binutils-2.43.1.tar.xz
+    tar -xf binutils-2.43.1.tar.xz
     cd binutils-2.43.1
-#    mv build build-pass-2
-#    mkdir -v build
+    mv build build-pass-2
+    mkdir -v build
     cd build
-#    ../configure --prefix=/usr   \
-#             --sysconfdir=/etc   \
-#             --enable-gold       \
-#             --enable-ld=default \
-#             --enable-plugins    \
-#             --enable-shared     \
-#             --disable-werror    \
-#             --enable-64-bit-bfd \
-#             --enable-new-dtags  \
-#             --with-system-zlib  \
-#             --enable-default-hash-style=gnu
-#    make tooldir=/usr
+    ../configure --prefix=/usr   \
+             --sysconfdir=/etc   \
+             --enable-gold       \
+             --enable-ld=default \
+             --enable-plugins    \
+             --enable-shared     \
+             --disable-werror    \
+             --enable-64-bit-bfd \
+             --enable-new-dtags  \
+             --with-system-zlib  \
+             --enable-default-hash-style=gnu
+    make tooldir=/usr
     set +e # Se desactiva la opción de parada por error
     make -k check
     grep '^FAIL:' $(find -name '*.log')
@@ -1366,7 +1366,7 @@ install_gcc() {
 }
 
 install_ncurses() {
-    cd sources
+    cd /sources
     # tar -xf ncurses-6.3.tar.gz 
     cd ncurses-6.5
     mv build build-pass-2
@@ -1407,34 +1407,34 @@ install_ncurses() {
 
 installing_basic_system() {
 # TODO: descomentar en la versión final.
-    #package_management
-    #install_man_pages
-    #install_iana_etc
-    #install_glibc
-    #install_zlib
-    #install_bzip
-    #install_xz
-    #install_lz4
-    #install_zstd
-    #install_file
-    #install_readline
-    #install_m4
-    #install_bc
-    #install_flex
-    #install_tcl
-    #install_spect
-    #install_dejaGNU
-    #install_pkgconf
-    #install_binutils
-    #install_gmp
-    #install_mpfr
-    #install_mpc
-    #install_attr
-    #install_acl
-    #install_libcap
-    #install_libxcrypt
-    #install_shadow
-    #install_gcc
+    package_management
+    install_man_pages
+    install_iana_etc
+    install_glibc
+    install_zlib
+    install_bzip
+    install_xz
+    install_lz4
+    install_zstd
+    install_file
+    install_readline
+    install_m4
+    install_bc
+    install_flex
+    install_tcl
+    install_spect
+    install_dejaGNU
+    install_pkgconf
+    install_binutils
+    install_gmp
+    install_mpfr
+    install_mpc
+    install_attr
+    install_acl
+    install_libcap
+    install_libxcrypt
+    install_shadow
+    install_gcc
     install_ncurses
     
     }
@@ -1442,18 +1442,18 @@ installing_basic_system() {
 # Función para continuar con la construcción del sistema base
 builddist() {
 #TODO: descomentar en la versión final.
-    #touch /var/log/{btmp,lastlog,faillog,wtmp}
-    #chgrp -v utmp /var/log/lastlog
-    #chmod -v 664  /var/log/lastlog
-    #chmod -v 600  /var/log/btmp
+    touch /var/log/{btmp,lastlog,faillog,wtmp}
+    chgrp -v utmp /var/log/lastlog
+    chmod -v 664  /var/log/lastlog
+    chmod -v 600  /var/log/btmp
 
-    #build_gettext
-    #build_bison
-    #build_perl
-    #build_python
-    #build_texinfo
-    #build_util_linux
-    #cleaning_and_backup
+    build_gettext
+    build_bison
+    build_perl
+    build_python
+    build_texinfo
+    build_util_linux
+    cleaning_and_backup
 
     installing_basic_system    
 
