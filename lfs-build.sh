@@ -845,9 +845,8 @@ install_glibc() {
 
     set +e # Se desactiva la opción de parada por error
     make check || false
+    grep "Timed out" $(find -name \*.out)  # TODO: Comprobar por qué se para aquí
     set -e # Se activa la opción de parada por error
-
-#    grep "Timed out" $(find -name \*.out)  # TODO: Comprobar por qué se para aquí
     touch /etc/ld.so.conf
     sed '/test-installation/s@$(PERL)@echo not running@' -i ../Makefile
     make install
@@ -1098,6 +1097,314 @@ install_tcl() {
     cp -v -r  ./html/* /usr/share/doc/tcl-8.6.14
 }
 
+install_spect() {
+    cd /sources
+    tar -xf expect5.45.4.tar.gz && cd expect5.45.4
+    python3 -c 'from pty import spawn; spawn(["echo", "ok"])'
+    patch -Np1 -i ../expect-5.45.4-gcc14-1.patch
+    ./configure --prefix=/usr           \
+            --with-tcl=/usr/lib     \
+            --enable-shared         \
+            --disable-rpath         \
+            --mandir=/usr/share/man \
+            --with-tclinclude=/usr/include
+    make && make test && make install
+    ln -svf expect5.45.4/libexpect5.45.4.so /usr/lib
+}
+
+install_dejaGNU() {
+    cd /sources
+    tar -xf dejagnu-1.6.3.tar.gz && cd dejagnu-1.6.3
+    mkdir -v build && cd build
+    ../configure --prefix=/usr
+    makeinfo --html --no-split -o doc/dejagnu.html ../doc/dejagnu.texi
+    makeinfo --plaintext       -o doc/dejagnu.txt  ../doc/dejagnu.texi
+    make check
+    make install
+    install -v -dm755  /usr/share/doc/dejagnu-1.6.3
+    install -v -m644   doc/dejagnu.{html,txt} /usr/share/doc/dejagnu-1.6.3
+}
+
+install_pkgconf() {
+    cd /sources
+    tar -xf pkgconf-2.3.0.tar.xz && cd pkgconf-2.3.0
+    ./configure --prefix=/usr              \
+            --disable-static           \
+            --docdir=/usr/share/doc/pkgconf-2.3.0
+    make && make install
+    ln -sv pkgconf   /usr/bin/pkg-config
+    ln -sv pkgconf.1 /usr/share/man/man1/pkg-config.1
+}
+
+install_binutils() {
+    cd /sources
+#    tar -xf binutils-2.43.1.tar.xz
+    cd binutils-2.43.1
+#    mv build build-pass-2
+#    mkdir -v build
+    cd build
+#    ../configure --prefix=/usr   \
+#             --sysconfdir=/etc   \
+#             --enable-gold       \
+#             --enable-ld=default \
+#             --enable-plugins    \
+#             --enable-shared     \
+#             --disable-werror    \
+#             --enable-64-bit-bfd \
+#             --enable-new-dtags  \
+#             --with-system-zlib  \
+#             --enable-default-hash-style=gnu
+#    make tooldir=/usr
+    set +e # Se desactiva la opción de parada por error
+    make -k check
+    grep '^FAIL:' $(find -name '*.log')
+    set -e # Se activa la opción de parada por error
+    make tooldir=/usr install
+    rm -fv /usr/lib/lib{bfd,ctf,ctf-nobfd,gprofng,opcodes,sframe}.a
+}
+
+install_gmp() {
+    cd /sources
+    tar -xf gmp-6.3.0.tar.xz && cd gmp-6.3.0
+    # If you are building for 32-bit x86, but you have a CPU which is 
+    # capable of running 64-bit code and you have specified CFLAGS in
+    # the environment, the configure script will attempt to configure 
+    # for 64-bits and fail. Avoid this by invoking the configure 
+    # command below with
+    # ABI=32 ./configure ...    
+    ./configure --prefix=/usr    \
+            --enable-cxx     \
+            --disable-static \
+            --docdir=/usr/share/doc/gmp-6.3.0
+    make && make html
+    make check 2>&1 | tee gmp-check-log
+    awk '/# PASS:/{total+=$3} ; END{print total}' gmp-check-log
+    make install
+    make install-html
+}
+
+install_mpfr() {
+    cd /sources
+    tar -xf mpfr-4.2.1.tar.xz && cd mpfr-4.2.1
+    ./configure --prefix=/usr        \
+                --disable-static     \
+                --enable-thread-safe \
+                --docdir=/usr/share/doc/mpfr-4.2.1
+    make && make html
+    make check
+    make install
+    make install-html
+}
+
+install_mpc() {
+    cd /sources
+    tar -xf mpc-1.3.1.tar.gz && cd mpc-1.3.1
+    ./configure --prefix=/usr    \
+                --disable-static \
+                --docdir=/usr/share/doc/mpc-1.3.1
+    make && make html
+    make check
+    make install
+    make install-html
+}
+
+install_attr() {
+    cd /sources
+    tar -xf attr-2.5.2.tar.gz && cd attr-2.5.2
+    ./configure --prefix=/usr     \
+                --disable-static  \
+                --sysconfdir=/etc \
+                --docdir=/usr/share/doc/attr-2.5.2
+    make
+    make check
+    make install
+    # TODO: Comprobar si es necesario
+    # mv -v /usr/lib/libattr.so.* /lib
+    # ln -sfv ../../lib/$(readlink /usr/lib/libattr.so) /usr/lib/libattr.so
+}
+
+install_acl() {
+    cd /sources
+    tar -xf acl-2.3.2.tar.xz && cd acl-2.3.2
+    ./configure --prefix=/usr         \
+                --disable-static      \
+                --docdir=/usr/share/doc/acl-2.3.2
+    make
+    make install
+}
+
+install_libcap() {
+    cd /sources
+    tar -xf libcap-2.70.tar.xz && cd libcap-2.70
+    sed -i '/install -m.*STA/d' libcap/Makefile
+    make prefix=/usr lib=lib
+    make test
+    make prefix=/usr lib=lib install
+}
+
+install_libxcrypt() {
+    cd /sources
+    tar -xf libxcrypt-4.4.36.tar.xz && cd libxcrypt-4.4.36
+    ./configure --prefix=/usr                \
+                --enable-hashes=strong,glibc \
+                --enable-obsolete-api=no     \
+                --disable-static             \
+                --disable-failure-tokens
+    make
+    make check
+    make install
+
+    make distclean
+    ./configure --prefix=/usr                \
+                --enable-hashes=strong,glibc \
+                --enable-obsolete-api=glibc  \
+                --disable-static             \
+                --disable-failure-tokens
+    make
+    cp -av --remove-destination .libs/libcrypt.so.1* /usr/lib
+}
+
+install_shadow() {
+    cd /sources
+    tar -xf shadow-4.16.0.tar.xz && cd shadow-4.16.0
+    sed -i 's/groups$(EXEEXT) //' src/Makefile.in
+    find man -name Makefile.in -exec sed -i 's/groups\.1 / /'   {} \;
+    find man -name Makefile.in -exec sed -i 's/getspnam\.3 / /' {} \;
+    find man -name Makefile.in -exec sed -i 's/passwd\.5 / /'   {} \; 
+    sed -e 's:#ENCRYPT_METHOD DES:ENCRYPT_METHOD YESCRYPT:' \
+        -e 's:/var/spool/mail:/var/mail:'                   \
+        -e '/PATH=/{s@/sbin:@@;s@/bin:@@}'                  \
+        -i etc/login.defs
+    # Cracklib support
+    sed -i 's:DICTPATH.*:DICTPATH\t/lib/cracklib/pw_dict:' etc/login.defs
+
+    touch /usr/bin/passwd
+    ./configure --sysconfdir=/etc   \
+                --disable-static    \
+                --with-{b,yes}crypt \
+                --without-libbsd    \
+                --with-group-name-max-length=32
+    make
+    make exec_prefix=/usr install
+    make -C man install-man
+
+    # Configuración de ficheros
+    pwconv
+    grpconv
+    mkdir -p /etc/default
+    useradd -D --gid 999
+    sed -i '/MAIL/s/yes/no/' /etc/default/useradd
+
+    passwd root
+}
+
+install_gcc() {
+    cd /sources
+    #tar -xf gcc-14.2.0.tar.xz 
+    cd gcc-14.2.0
+    mv build build-pass-2
+
+    case $(uname -m) in
+    x86_64)
+        sed -e '/m64=/s/lib64/lib/' \
+            -i.orig gcc/config/i386/t-linux64
+    ;;
+    esac
+
+    mkdir -v build && cd build
+    ../configure --prefix=/usr            \
+                LD=ld                    \
+                --enable-languages=c,c++ \
+                --enable-default-pie     \
+                --enable-default-ssp     \
+                --enable-host-pie        \
+                --disable-multilib       \
+                --disable-bootstrap      \
+                --disable-fixincludes    \
+                --with-system-zlib
+    make
+    ulimit -s -H unlimited
+    sed -e '/cpython/d'               -i ../gcc/testsuite/gcc.dg/plugin/plugin.exp
+    sed -e 's/no-pic /&-no-pie /'     -i ../gcc/testsuite/gcc.target/i386/pr113689-1.c
+    sed -e 's/300000/(1|300000)/'     -i ../libgomp/testsuite/libgomp.c-c++-common/pr109062.c
+    sed -e 's/{ target nonpic } //' \
+        -e '/GOTPCREL/d'              -i ../gcc/testsuite/gcc.target/i386/fentryname3.c
+    chown -R tester .
+    su tester -c "PATH=$PATH make -k check"
+    ../contrib/test_summary
+    make install
+    chown -v -R root:root \
+    /usr/lib/gcc/$(gcc -dumpmachine)/14.2.0/include{,-fixed}
+    ln -svr /usr/bin/cpp /usr/lib
+    ln -sv gcc.1 /usr/share/man/man1/cc.1
+    ln -sfv ../../libexec/gcc/$(gcc -dumpmachine)/14.2.0/liblto_plugin.so \
+        /usr/lib/bfd-plugins/
+    echo 'int main(){}' > dummy.c
+    cc dummy.c -v -Wl,--verbose &> dummy.log
+    readelf -l a.out | grep ': /lib'
+    # TODO: Comprobar el siguiente resultado:
+    # [Requesting program interpreter: /lib64/ld-linux-x86-64.so.2]
+    grep -E -o '/usr/lib.*/S?crt[1in].*succeeded' dummy.log
+    # TODO: Comprobar el siguiente resultado:
+    #/usr/lib/gcc/x86_64-pc-linux-gnu/14.2.0/../../../../lib/Scrt1.o succeeded
+    # /usr/lib/gcc/x86_64-pc-linux-gnu/14.2.0/../../../../lib/crti.o succeeded
+    # /usr/lib/gcc/x86_64-pc-linux-gnu/14.2.0/../../../../lib/crtn.o succeeded
+    grep -B4 '^ /usr/include' dummy.log
+    # TODO: Comprobar el siguiente resultado:
+    # #include <...> search starts here:#include <...> search starts here:
+    # /usr/lib/gcc/x86_64-pc-linux-gnu/14.2.0/include
+    # /usr/local/include
+    # /usr/lib/gcc/x86_64-pc-linux-gnu/14.2.0/include-fixed
+    # /usr/include
+    grep 'SEARCH.*/usr/lib' dummy.log |sed 's|; |\n|g'
+    # TODO: Comprobar resultados según lo establecido en LBS v12.2 - Chapter 8 - GCC-14.2.0
+    grep "/lib.*/libc.so.6 " dummy.log
+    grep found dummy.log
+    rm -v dummy.c a.out dummy.log
+    mkdir -pv /usr/share/gdb/auto-load/usr/lib
+    mv -v /usr/lib/*gdb.py /usr/share/gdb/auto-load/usr/lib
+}
+
+install_ncurses() {
+    cd sources
+    # tar -xf ncurses-6.3.tar.gz 
+    cd ncurses-6.5
+    mv build build-pass-2
+    ./configure --prefix=/usr           \
+                --mandir=/usr/share/man \
+                --with-shared           \
+                --without-debug         \
+                --without-normal        \
+                --with-cxx-shared       \
+                --enable-pc-files       \
+                --with-pkg-config-libdir=/usr/lib/pkgconfig
+    make
+    make DESTDIR=$PWD/dest install
+    install -vm755 dest/usr/lib/libncursesw.so.6.5 /usr/lib
+    rm -v  dest/usr/lib/libncursesw.so.6.5
+    sed -e 's/^#if.*XOPEN.*$/#if 1/' \
+        -i dest/usr/include/curses.h
+    cp -av dest/* /
+
+    for lib in ncurses form panel menu ; do
+        ln -sfv lib${lib}w.so /usr/lib/lib${lib}.so
+        ln -sfv ${lib}w.pc    /usr/lib/pkgconfig/${lib}.pc
+    done
+
+    ln -sfv libncursesw.so /usr/lib/libcurses.so
+    cp -v -R doc -T /usr/share/doc/ncurses-6.5
+
+    make distclean
+    ./configure --prefix=/usr    \
+                --with-shared    \
+                --without-normal \
+                --without-debug  \
+                --without-cxx-binding \
+                --with-abi-version=5
+    make sources libs
+    cp -av lib/lib*.so.5* /usr/lib
+}
+
 installing_basic_system() {
 # TODO: descomentar en la versión final.
     #package_management
@@ -1113,10 +1420,24 @@ installing_basic_system() {
     #install_readline
     #install_m4
     #install_bc
-    install_flex
-    install_tcl
-
-}
+    #install_flex
+    #install_tcl
+    #install_spect
+    #install_dejaGNU
+    #install_pkgconf
+    #install_binutils
+    #install_gmp
+    #install_mpfr
+    #install_mpc
+    #install_attr
+    #install_acl
+    #install_libcap
+    #install_libxcrypt
+    #install_shadow
+    #install_gcc
+    install_ncurses
+    
+    }
 
 # Función para continuar con la construcción del sistema base
 builddist() {
