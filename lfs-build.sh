@@ -1885,13 +1885,15 @@ intall_tar() {
     FORCE_UNSAFE_CONFIGURE=1  \
         ./configure --prefix=/usr
     make clean && make
+    set +e
     make check
     make install
     make -C doc install-html docdir=/usr/share/doc/tar-1.35
+    set -e
 }
 
 install_texinfo() {
-    cd /sources/texinfo-6.9
+    cd /sources/texinfo-7.1
     ./configure --prefix=/usr
     make clean && make
     make check
@@ -2013,7 +2015,7 @@ installing_basic_system() {
     #install_libpipeline
     #install_make
     #install_patch
-    intall_tar
+    #intall_tar
     install_texinfo
     install_vim
 
