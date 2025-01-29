@@ -690,7 +690,7 @@ install -o tester -d /home/tester
 clear
 echo "Ahora se va ejecutar un nuevo sheel para continuar con la construcción del sistema base."
 echo ""
-echo "Ejecute el script con la opción 'continue' para continuar."
+echo "Ejecute el script con la opción 'builddist' para continuar."
 echo ""
 
 exec /usr/bin/bash --login
@@ -852,7 +852,7 @@ install_glibc() {
     make install
     sed '/RTLDLIST=/s@/usr@@g' -i /usr/bin/ldd
 
-    #Configuración de localización
+    # Configuración de localización
 
     localedef -i C -f UTF-8 C.UTF-8
     localedef -i cs_CZ -f UTF-8 cs_CZ.UTF-8
@@ -1405,55 +1405,471 @@ install_ncurses() {
     cp -av lib/lib*.so.5* /usr/lib
 }
 
+install_sed() {
+    cd /sources/sed-4.9
+    ./configure --prefix=/usr
+    make
+    make html
+    chown -R tester .
+    su tester -c "PATH=$PATH make check"
+    make install
+    install -d -m755           /usr/share/doc/sed-4.9
+    install -m644 doc/sed.html /usr/share/doc/sed-4.9
+}
+
+install_psmisc() {
+    cd /sources
+    tar -xf psmisc-23.7.tar.xz && cd psmisc-23.7
+    ./configure --prefix=/usr
+    make
+    make check
+    make install
+}
+
+install_gettext() {
+    cd /sources/gettext-0.22.5
+    ./configure --prefix=/usr    \
+                --disable-static \
+                --docdir=/usr/share/doc/gettext-0.22.5
+    make
+    make check
+    make install
+    chmod -v 0755 /usr/lib/preloadable_libintl.so
+}
+
+install_bison() {
+    cd /sources/bison-3.8.2
+    ./configure --prefix=/usr --docdir=/usr/share/doc/bison-3.8.2
+    make
+    make check
+    make install
+}
+
+install_grep() {
+    cd /sources/grep-3.11
+    sed -i "s/echo/#echo/" src/egrep.sh
+    ./configure --prefix=/usr
+    make
+    make check
+    make install
+}
+
+install_bash() {
+    cd /sources/bash-5.2.32
+    ./configure --prefix=/usr             \
+                --without-bash-malloc     \
+                --with-installed-readline \
+                bash_cv_strtold_broken=no \
+                --docdir=/usr/share/doc/bash-5.2.32
+    make
+    chown -Rv tester .
+    su -s /usr/bin/expect tester << "EOF"
+set timeout -1
+spawn make tests
+expect eof
+lassign [wait] _ _ _ value
+exit $value
+EOF
+    make install
+    ln -sv bash /usr/bin/sh
+    # TODO: Comprobar si es necesario
+    # exec /usr/bin/bash --login
+}
+
+install_libtool() {
+    cd /sources
+    tar -xf libtool-2.4.7.tar.xz && cd libtool-2.4.7
+    ./configure --prefix=/usr
+    make
+    set +x
+    set +e
+    make -k check
+    make install
+    rm -fv /usr/lib/libltdl.a
+    set -e    
+}
+
+install_gdbm() {
+    cd /sources
+    tar -xf gdbm-1.24.tar.gz && cd gdbm-1.24
+    ./configure --prefix=/usr    \
+                --disable-static \
+                --enable-libgdbm-compat
+    make
+    make check
+    make install
+}
+
+install_gperf() {
+    cd /sources
+    tar -xf gperf-3.1.tar.gz && cd gperf-3.1
+    ./configure --prefix=/usr --docdir=/usr/share/doc/gperf-3.1
+    make
+    make -j1 check
+    make install
+}
+
+install_expat() {
+    cd /sources
+    tar -xf expat-2.6.2.tar.xz && cd expat-2.6.2
+    ./configure --prefix=/usr    \
+                --disable-static \
+                --docdir=/usr/share/doc/expat-2.6.2
+    make
+    make check
+    make install
+    install -v -m644 doc/*.{html,css} /usr/share/doc/expat-2.6.2
+}
+
+install_inetutils() {
+    cd /sources
+    tar -xf inetutils-2.5.tar.xz && cd inetutils-2.5
+    sed -i 's/def HAVE_TERMCAP_TGETENT/ 1/' telnet/telnet.c
+    ./configure --prefix=/usr        \
+                --bindir=/usr/bin    \
+                --localstatedir=/var \
+                --disable-logger     \
+                --disable-whois      \
+                --disable-rcp        \
+                --disable-rexec      \
+                --disable-rlogin     \
+                --disable-rsh        \
+                --disable-servers
+    make
+    make check
+    make install
+    mv -v /usr/{,s}bin/ifconfig
+}
+
+install_less() {
+    cd /sources
+    tar -xf less-661.tar.gz && cd less-661
+    ./configure --prefix=/usr --sysconfdir=/etc
+    make
+    make check
+    make install
+}
+
+install_perl() {
+    cd /sources/perl-5.40.0
+    export BUILD_ZLIB=False
+    export BUILD_BZIP2=0
+    sh Configure -des                                          \
+                -D prefix=/usr                                \
+                -D vendorprefix=/usr                          \
+                -D privlib=/usr/lib/perl5/5.40/core_perl      \
+                -D archlib=/usr/lib/perl5/5.40/core_perl      \
+                -D sitelib=/usr/lib/perl5/5.40/site_perl      \
+                -D sitearch=/usr/lib/perl5/5.40/site_perl     \
+                -D vendorlib=/usr/lib/perl5/5.40/vendor_perl  \
+                -D vendorarch=/usr/lib/perl5/5.40/vendor_perl \
+                -D man1dir=/usr/share/man/man1                \
+                -D man3dir=/usr/share/man/man3                \
+                -D pager="/usr/bin/less -isR"                 \
+                -D useshrplib                                 \
+                -D usethreads
+    make
+    TEST_JOBS=$(nproc) make test_harness
+    make install
+    unset BUILD_ZLIB BUILD_BZIP2
+}
+
+install_xml_parser() {
+    cd /sources
+    tar -xf XML-Parser-2.47.tar.gz && cd XML-Parser-2.47
+    perl Makefile.PL
+    make
+    make test
+    make install
+}
+
+install_intltool() {
+    cd /sources
+    tar -xf intltool-0.51.0.tar.gz && cd intltool-0.51.0
+    sed -i 's:\\\${:\\\$\\{:' intltool-update.in
+    ./configure --prefix=/usr
+    make
+    make check
+    make install
+    install -v -Dm644 doc/I18N-HOWTO /usr/share/doc/intltool-0.51.0/I18N-HOWTO
+}
+
+install_autoconf() {
+    cd /sources
+    tar -xf autoconf-2.72.tar.xz && cd autoconf-2.72
+    ./configure --prefix=/usr
+    make
+    make check
+    make install
+}
+
+install_automake() {
+    cd /sources
+    tar -xf automake-1.17.tar.xz && cd automake-1.17
+    ./configure --prefix=/usr --docdir=/usr/share/doc/automake-1.17
+    make
+    make -j$(($(nproc)>4?$(nproc):4)) check
+    make install
+}
+
+install_openssl() {
+    cd /sources
+    tar -xf openssl-3.3.1.tar.gz && cd openssl-3.3.1
+    ./config --prefix=/usr         \
+            --openssldir=/etc/ssl \
+            --libdir=lib          \
+            shared                \
+            zlib-dynamic
+    make
+    HARNESS_JOBS=$(nproc) make test
+    sed -i '/INSTALL_LIBS/s/libcrypto.a libssl.a//' Makefile
+    make MANSUFFIX=ssl install
+    mv -v /usr/share/doc/openssl /usr/share/doc/openssl-3.3.1
+    cp -vfr doc/* /usr/share/doc/openssl-3.3.1
+}
+
+install_kmod() {
+    cd /sources
+    tar -xf kmod-33.tar.xz && cd kmod-33
+    ./configure --prefix=/usr     \
+                --sysconfdir=/etc \
+                --with-openssl    \
+                --with-xz         \
+                --with-zstd       \
+                --with-zlib       \
+                --disable-manpages
+    make
+    make install
+
+    for target in depmod insmod modinfo modprobe rmmod; do
+    ln -sfv ../bin/kmod /usr/sbin/$target
+    rm -fv /usr/bin/$target
+    done
+}
+
+install_libelf_from_elfutils() {
+    cd /sources
+    tar -xf elfutils-0.191.tar.bz2 && cd elfutils-0.191
+    ./configure --prefix=/usr                \
+                --disable-debuginfod         \
+                --enable-libdebuginfod=dummy
+    make
+    make check
+    make -C libelf install
+    install -vm644 config/libelf.pc /usr/lib/pkgconfig
+    rm /usr/lib/libelf.a
+}
+
+install_libffi() {
+    cd /sources
+    tar -xf libffi-3.4.6.tar.gz && cd libffi-3.4.6
+    ./configure --prefix=/usr          \
+                --disable-static       \
+                --with-gcc-arch=native
+    make
+    make check
+    make install
+}
+
+install_python() {
+    cd /sources/Python-3.12.5
+    ./configure --prefix=/usr        \
+                --enable-shared      \
+                --with-system-expat  \
+                --enable-optimizations
+    make
+    make test TESTOPTS="--timeout 120"
+    make install
+    cat > /etc/pip.conf << EOF
+[global]
+root-user-action = ignore
+disable-pip-version-check = true
+EOF
+    install -v -dm755 /usr/share/doc/python-3.12.5/html
+
+    tar --no-same-owner \
+        -xvf ../python-3.12.5-docs-html.tar.bz2
+    cp -R --no-preserve=mode python-3.12.5-docs-html/* \
+        /usr/share/doc/python-3.12.5/html
+}
+
+install_flitcore() {
+    cd /sources
+    tar -xf flit_core-3.9.0.tar.gz && cd flit_core-3.9.0
+    pip3 wheel -w dist --no-cache-dir --no-build-isolation --no-deps $PWD
+    pip3 install --no-index --find-links dist flit_core
+}
+
+install_whell() {
+    cd /sources
+    tar -xf wheel-0.44.0.tar.gz && cd wheel-0.44.0
+    pip3 wheel -w dist --no-cache-dir --no-build-isolation --no-deps $PWD
+    pip3 install --no-index --find-links dist wheel
+}
+
+install_setuptools() {
+    cd /sources
+    tar -xf setuptools-72.2.0.tar.gz && cd setuptools-72.2.0
+    pip3 wheel -w dist --no-cache-dir --no-build-isolation --no-deps $PWD
+    pip3 install --no-index --find-links dist setuptools
+}
+
+install_ninja() {
+    cd /sources
+    tar -xf ninja-1.12.1.tar.gz && cd ninja-1.12.1
+    export NINJAJOBS=4
+    sed -i '/int Guess/a \
+        int   j = 0;\
+        char* jobs = getenv( "NINJAJOBS" );\
+        if ( jobs != NULL ) j = atoi( jobs );\
+        if ( j > 0 ) return j;\
+        ' src/ninja.cc
+    python3 configure.py --bootstrap
+    install -vm755 ninja /usr/bin/
+    install -vDm644 misc/bash-completion /usr/share/bash-completion/completions/ninja
+    install -vDm644 misc/zsh-completion  /usr/share/zsh/site-functions/_ninja
+}
+
+install_meson() {
+    cd /sources
+    tar -xf meson-1.5.1.tar.gz && cd meson-1.5.1
+    pip3 wheel -w dist --no-cache-dir --no-build-isolation --no-deps $PWD
+    pip3 install --no-index --find-links dist meson
+    install -vDm644 data/shell-completions/bash/meson /usr/share/bash-completion/completions/meson
+    install -vDm644 data/shell-completions/zsh/_meson /usr/share/zsh/site-functions/_meson
+}
+
+install_coreutils() {
+    cd /sources/coreutils-9.5
+    patch -Np1 -i ../coreutils-9.5-i18n-2.patch
+    autoreconf -fiv
+    FORCE_UNSAFE_CONFIGURE=1 ./configure \
+                --prefix=/usr            \
+                --enable-no-install-program=kill,uptime
+    make
+    make NON_ROOT_USERNAME=tester check-root
+    groupadd -g 102 dummy -U tester
+    chown -R tester . 
+    su tester -c "PATH=$PATH make -k RUN_EXPENSIVE_TESTS=yes check" \
+        < /dev/null
+    groupdel dummy
+    make install
+    mv -v /usr/bin/chroot /usr/sbin
+    mv -v /usr/share/man/man1/chroot.1 /usr/share/man/man8/chroot.8
+    sed -i 's/"1"/"8"/' /usr/share/man/man8/chroot.8
+}
+
+install_check() {
+    cd /sources
+    tar -xf check-0.15.2.tar.gz && cd check-0.15.2
+    ./configure --prefix=/usr --disable-static
+    make
+    make check
+    make docdir=/usr/share/doc/check-0.15.2 install
+}
+
+install_diffutils() {
+    cd /sources/diffutils-3.10
+    ./configure --prefix=/usr
+    make
+    make check
+    make install
+}
+
+install_gawk() {
+    cd /sources/gawk-5.3.0
+    sed -i 's/extras//' Makefile.in
+    ./configure --prefix=/usr
+    make
+    chown -R tester .
+    su tester -c "PATH=$PATH make check"
+    rm -f /usr/bin/gawk-5.3.1
+    make install
+    ln -sv gawk.1 /usr/share/man/man1/awk.1
+    install -vDm644 doc/{awkforai.txt,*.{eps,pdf,jpg}} -t /usr/share/doc/gawk-5.3.1
+}
+
 installing_basic_system() {
 # TODO: descomentar en la versión final.
-    package_management
-    install_man_pages
-    install_iana_etc
-    install_glibc
-    install_zlib
-    install_bzip
-    install_xz
-    install_lz4
-    install_zstd
-    install_file
-    install_readline
-    install_m4
-    install_bc
-    install_flex
-    install_tcl
-    install_spect
-    install_dejaGNU
-    install_pkgconf
-    install_binutils
-    install_gmp
-    install_mpfr
-    install_mpc
-    install_attr
-    install_acl
-    install_libcap
-    install_libxcrypt
-    install_shadow
-    install_gcc
-    install_ncurses
+    ##package_management
+    #install_man_pages
+    #install_iana_etc
+    #install_glibc
+    #install_zlib
+    #install_bzip
+    #install_xz
+    #install_lz4
+    #install_zstd
+    #install_file
+    #install_readline
+    #install_m4
+    #install_bc
+    #install_flex
+    #install_tcl
+    #install_spect
+    #install_dejaGNU
+    #install_pkgconf
+    #install_binutils
+    #install_gmp
+    #install_mpfr
+    #install_mpc
+    #install_attr
+    #install_acl
+    #install_libcap
+    #install_libxcrypt
+    #install_shadow
+    #install_gcc
+    #install_ncurses
+    #install_sed
+    #install_psmisc
+    #install_gettext
+    #install_bison
+    #install_grep
+    #install_bash
+    #install_libtool
+    #install_gdbm
+    #install_gperf
+    #install_expat
+    #install_inetutils
+    #install_less
+    #install_perl
+    #install_xml_parser
+    #install_intltool
+    #install_autoconf
+    #install_automake
+    #install_openssl
+    #install_kmod
+    #install_libelf_from_elfutils
+    #install_libffi
+    #install_python
+    #install_flitcore
+    #install_whell
+    #install_setuptools
+    install_ninja
+    install_meson
+    install_coreutils
+    install_check
+    install_diffutils
+
+
     
     }
 
 # Función para continuar con la construcción del sistema base
 builddist() {
 #TODO: descomentar en la versión final.
-    touch /var/log/{btmp,lastlog,faillog,wtmp}
-    chgrp -v utmp /var/log/lastlog
-    chmod -v 664  /var/log/lastlog
-    chmod -v 600  /var/log/btmp
+    #touch /var/log/{btmp,lastlog,faillog,wtmp}
+    #chgrp -v utmp /var/log/lastlog
+    #chmod -v 664  /var/log/lastlog
+    #chmod -v 600  /var/log/btmp
 
-    build_gettext
-    build_bison
-    build_perl
-    build_python
-    build_texinfo
-    build_util_linux
-    cleaning_and_backup
+    #build_gettext
+    #build_bison
+    #build_perl
+    #build_python
+    #build_texinfo
+    #build_util_linux
+    #cleaning_and_backup
 
     installing_basic_system    
 
