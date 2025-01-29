@@ -4,7 +4,7 @@
 # Fegor's Creation Distribution for Linux
 
 set -e
-#set -x
+set -x
 
 # Global variables
 INSTALL_PATH="/lfs"
@@ -1717,7 +1717,7 @@ install_setuptools() {
 install_ninja() {
     cd /sources
     tar -xf ninja-1.12.1.tar.gz && cd ninja-1.12.1
-    export NINJAJOBS=4
+    export NINJAJOBS=2
     sed -i '/int Guess/a \
         int   j = 0;\
         char* jobs = getenv( "NINJAJOBS" );\
@@ -1741,8 +1741,9 @@ install_meson() {
 
 install_coreutils() {
     cd /sources/coreutils-9.5
+    set +e
     patch -Np1 -i ../coreutils-9.5-i18n-2.patch
-    autoreconf -fiv
+    env AUTOPOINT=true autoreconf -fiv
     FORCE_UNSAFE_CONFIGURE=1 ./configure \
                 --prefix=/usr            \
                 --enable-no-install-program=kill,uptime
@@ -1771,7 +1772,7 @@ install_check() {
 install_diffutils() {
     cd /sources/diffutils-3.10
     ./configure --prefix=/usr
-    make
+    make clean && make
     make check
     make install
 }
@@ -1787,6 +1788,160 @@ install_gawk() {
     make install
     ln -sv gawk.1 /usr/share/man/man1/awk.1
     install -vDm644 doc/{awkforai.txt,*.{eps,pdf,jpg}} -t /usr/share/doc/gawk-5.3.1
+}
+
+install_findutils() {
+    cd /sources/findutils-4.10.0
+    ./configure --prefix=/usr --localstatedir=/var/lib/locate
+    make clean && make
+    chown -R tester .
+    su tester -c "PATH=$PATH make check"
+    make install
+}
+
+install_groff() {
+    cd /sources
+    tar -xf groff-1.23.0.tar.gz && cd groff-1.23.0
+    PAGE=A4 ./configure --prefix=/usr
+    make
+    make check
+    make install
+}
+
+install_grub() {
+    cd /sources
+    tar -xf grub-2.12.tar.xz && cd grub-2.12
+    unset {C,CPP,CXX,LD}FLAGS
+    echo depends bli part_gpt > grub-core/extra_deps.lst
+    ./configure --prefix=/usr          \
+                --sysconfdir=/etc      \
+                --disable-efiemu       \
+                --disable-werror
+    make
+    make install
+    mv -v /etc/bash_completion.d/grub /usr/share/bash-completion/completions
+}
+
+install_gzip() {
+    cd /sources/gzip-1.13
+    ./configure --prefix=/usr
+    make clean && make
+    make check
+    make install
+}
+
+install_iproute2() {
+    cd /sources
+    tar -xf iproute2-6.10.0.tar.xz && cd iproute2-6.10.0
+    sed -i /ARPD/d Makefile
+    rm -fv man/man8/arpd.8
+    make NETNS_RUN_DIR=/run/netns
+    make SBINDIR=/usr/sbin install
+    mkdir -pv             /usr/share/doc/iproute2-6.10.0
+    cp -v COPYING README* /usr/share/doc/iproute2-6.10.0
+}
+
+install_kbd() {
+    cd /sources
+    tar -xf kbd-2.6.4.tar.xz && cd kbd-2.6.4
+    patch -Np1 -i ../kbd-2.6.4-backspace-1.patch
+    sed -i '/RESIZECONS_PROGS=/s/yes/no/' configure
+    sed -i 's/resizecons.8 //' docs/man/man8/Makefile.in
+    ./configure --prefix=/usr --disable-vlock
+    make
+    make check
+    make install
+    cp -R -v docs/doc -T /usr/share/doc/kbd-2.6.4
+}
+
+install_libpipeline() {
+    cd /sources
+    tar -xf libpipeline-1.5.7.tar.gz && cd libpipeline-1.5.7
+    ./configure --prefix=/usr
+    make
+    make check
+    make install
+}
+
+install_make() {
+    cd /sources/make-4.4.1
+    ./configure --prefix=/usr
+    make
+    chown -R tester .
+    su tester -c "PATH=$PATH make check"
+    make install
+}
+
+install_patch() {
+    cd /sources/patch-2.7.6
+    ./configure --prefix=/usr
+    make clean && make
+    make check
+    make
+}
+
+intall_tar() {
+    cd /sources/tar-1.35
+    FORCE_UNSAFE_CONFIGURE=1  \
+        ./configure --prefix=/usr
+    make
+    set +e
+    make check
+    set -e
+    make install
+    make -C doc install-html docdir=/usr/share/doc/tar-1.35
+}
+
+install_texinfo() {
+    cd /sources/texinfo-6.9
+    ./configure --prefix=/usr
+    make clean && make
+    make check
+    make install
+    make TEXMF=/usr/share/texmf install-tex
+
+    pushd /usr/share/info
+    rm -v dir
+    for f in *
+        do install-info $f dir 2>/dev/null
+    done
+    popd
+}
+
+install_vim() {
+    cd /sources
+    tar -xf vim-9.1.0660.tar.gz && cd vim-9.1.0660
+    echo '#define SYS_VIMRC_FILE "/etc/vimrc"' >> src/feature.h
+    ./configure --prefix=/usr
+    make
+    chown -R tester .
+    su tester -c "TERM=xterm-256color LANG=en_US.UTF-8 make -j1 test" \
+        &> vim-test.log
+    make install
+    ln -sv vim /usr/bin/vi
+    for L in  /usr/share/man/{,*/}man1/vim.1; do
+        ln -sv vim.1 $(dirname $L)/vi.1
+    done
+    ln -sv ../vim/vim91/doc /usr/share/doc/vim-9.1.0660
+
+    # Configuración de vim
+    cat > /etc/vimrc << "EOF"
+" Begin /etc/vimrc
+
+" Ensure defaults are set before customizing settings, not after
+source $VIMRUNTIME/defaults.vim
+let skip_defaults_vim=1
+
+set nocompatible
+set backspace=2
+set mouse=
+syntax on
+if (&term == "xterm") || (&term == "putty")
+  set background=dark
+endif
+
+" End /etc/vimrc
+EOF
 }
 
 installing_basic_system() {
@@ -1845,11 +2000,26 @@ installing_basic_system() {
     #install_flitcore
     #install_whell
     #install_setuptools
-    install_ninja
-    install_meson
-    install_coreutils
-    install_check
-    install_diffutils
+    #install_ninja
+    #install_meson
+    #install_coreutils
+    #install_check
+    #install_diffutils
+    #install_gawk
+    #install_findutils
+    #install_groff
+    #install_grub
+    #install_gzip
+    #install_iproute2
+    #install_kbd
+    #install_libpipeline
+    #install_make
+    #install_patch
+    intall_tar
+    install_texinfo
+    install_vim
+
+    
 
 
     
