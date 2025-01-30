@@ -1,7 +1,10 @@
 #!/bin/bash
 
 # Linux From Scratch Automation Script
-# Fegor's Creation Distribution for Linux
+# LFS-ID: 31159
+# Name: Fernando Gonzalez Ruano
+# First LFS version: 12.2
+# Date: 2022-03-06
 
 set -e
 set -x
@@ -2484,7 +2487,101 @@ shells_configuration() {
 EOF
 
 }
-    
+
+create_fstab() {
+    cat > /etc/fstab << "EOF"
+# Begin /etc/fstab
+
+# file system  mount-point    type     options             dump  fsck
+#                                                                order
+
+/dev/sda1      /              ext4     defaults            1     1
+#/dev/sda2      swap           swap     pri=1               0     0
+proc           /proc          proc     nosuid,noexec,nodev 0     0
+sysfs          /sys           sysfs    nosuid,noexec,nodev 0     0
+devpts         /dev/pts       devpts   gid=5,mode=620      0     0
+tmpfs          /run           tmpfs    defaults            0     0
+devtmpfs       /dev           devtmpfs mode=0755,nosuid    0     0
+tmpfs          /dev/shm       tmpfs    nosuid,nodev        0     0
+cgroup2        /sys/fs/cgroup cgroup2  nosuid,noexec,nodev 0     0
+
+# End /etc/fstab
+EOF
+
+}
+
+kernel_compilation() {
+    cd /sources/linux-6.10.5
+    make clean
+    make mrproper
+    make menuconfig
+    make
+    make modules_install
+    mount /boot
+
+    cp -iv arch/x86/boot/bzImage /boot/vmlinuz-6.10.5-lfs-12.2
+    cp -iv System.map /boot/System.map-6.10.5
+    cp -iv .config /boot/config-6.10.5
+    cp -r Documentation -T /usr/share/doc/linux-6.10.5
+
+    # Linux Module Load Order Configuration
+    install -v -m755 -d /etc/modprobe.d
+    cat > /etc/modprobe.d/usb.conf << "EOF"
+# Begin /etc/modprobe.d/usb.conf
+
+install ohci_hcd /sbin/modprobe ehci_hcd ; /sbin/modprobe -i ohci_hcd ; true
+install uhci_hcd /sbin/modprobe ehci_hcd ; /sbin/modprobe -i uhci_hcd ; true
+
+# End /etc/modprobe.d/usb.conf
+EOF
+
+}
+
+grub_setup() {
+    grub-install /dev/sda
+
+    cat > /boot/grub/grub.cfg << "EOF"
+# Begin /boot/grub/grub.cfg
+set default=0
+set timeout=5
+
+insmod part_gpt
+insmod ext2
+set root=(hd0,2)
+
+menuentry "GNU/Linux, Linux 6.10.5-lfs-12.2" {
+        linux   /boot/vmlinuz-6.10.5-lfs-12.2 root=/dev/sda1 ro
+}
+EOF
+
+}
+
+last_step_release() {
+    echo 12.2 > /etc/lfs-release
+    cat > /etc/lsb-release << "EOF"
+DISTRIB_ID="fegorOS"
+DISTRIB_RELEASE="1.0"
+DISTRIB_CODENAME="Fernando González Ruano"
+DISTRIB_DESCRIPTION="Forensic Examination and Governance Operating Resource"
+EOF
+
+    cat > /etc/os-release << "EOF"
+NAME="FegorOS"
+VERSION="1.0"
+ID=fegor
+PRETTY_NAME="Forensic Examination and Governance Operating Resource"
+VERSION_CODENAME="1.0"
+HOME_URL="https://www.fegorsoft.com"
+EOF
+}
+
+system_bootable() {
+    create_fstab
+    kernel_compilation
+    grub_setup
+    last_step_release
+}
+
 # Función para continuar con la construcción del sistema base
 builddist() {
 #TODO: descomentar en la versión final.
@@ -2526,6 +2623,7 @@ builddist() {
     #inputrc_configuration
     #shells_configuration
 
+    system_bootable
 }
 
 # Función principal
