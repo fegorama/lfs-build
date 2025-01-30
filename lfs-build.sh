@@ -2374,7 +2374,8 @@ s1:1:respawn:/sbin/sulogin
 6:2345:respawn:/sbin/agetty tty6 9600
 
 # End /etc/inittab
-EOF    
+EOF
+
 }
 
 system_clock_configuration() {
@@ -2389,6 +2390,7 @@ CLOCKPARAMS=
 
 # End /etc/sysconfig/clock
 EOF
+
 }
 
 keyboard_configuration() {
@@ -2402,6 +2404,7 @@ UNICODE="1"
 
 # End /etc/sysconfig/console
 EOF
+
 }
 
 profile_configuration() {
@@ -2419,7 +2422,8 @@ else
 fi
 
 # End /etc/profile
-EOF    
+EOF
+
 }
 
 inputrc_configuration() {
@@ -2466,6 +2470,7 @@ set bell-style none
 
 # End /etc/inputrc
 EOF
+
 }
 
 shells_configuration() {
@@ -2477,6 +2482,7 @@ shells_configuration() {
 
 # End /etc/shells
 EOF
+
 }
     
 # Función para continuar con la construcción del sistema base
@@ -2505,20 +2511,20 @@ builddist() {
     #cleaning_up
     set -e
 
-    lfs_bootscript
+    #lfs_bootscript
 
     # TODO: Managing Devices
     # p.e.: bash /usr/lib/udev/init-net-rules.sh
     #       cat /etc/udev/rules.d/70-persistent-net.rules
 
     # TODO: Parametrizar datos de red, teclado, etc.
-    network_configuration
-    system_v_bootscript
-    system_clock_configuration
-    keyboard_configuration
-    profile_configuration
-    inputrc_configuration
-    shells_configuration
+    #network_configuration
+    #system_v_bootscript
+    #system_clock_configuration
+    #keyboard_configuration
+    #profile_configuration
+    #inputrc_configuration
+    #shells_configuration
 
 }
 
