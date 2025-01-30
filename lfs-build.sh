@@ -2294,6 +2294,15 @@ stripping() {
     unset BIN LIB save_usrlib online_usrbin online_usrlib
 }
 
+cleaning_up() {
+    rm -rf /tmp/{*,.*}
+    find /usr/lib /usr/libexec -name \*.la -delete
+    find /usr -depth -name $(uname -m)-lfs-linux-gnu\* | xargs rm -rf
+    userdel -r tester
+}
+
+
+
 # Función para continuar con la construcción del sistema base
 builddist() {
 #TODO: descomentar en la versión final.
@@ -2311,7 +2320,11 @@ builddist() {
     #cleaning_and_backup
 
     #installing_basic_system
-    stripping
+
+    set +e
+    #stripping
+    cleaning_up
+    set -e
 
 
 }
