@@ -2584,45 +2584,42 @@ system_bootable() {
 
 # Función para continuar con la construcción del sistema base
 builddist() {
-#TODO: descomentar en la versión final.
-    #touch /var/log/{btmp,lastlog,faillog,wtmp}
-    #chgrp -v utmp /var/log/lastlog
-    #chmod -v 664  /var/log/lastlog
-    #chmod -v 600  /var/log/btmp
+    touch /var/log/{btmp,lastlog,faillog,wtmp}
+    chgrp -v utmp /var/log/lastlog
+    chmod -v 664  /var/log/lastlog
+    chmod -v 600  /var/log/btmp
 
-    #build_gettext
-    #build_bison
-    #build_perl
-    #build_python
-    #build_texinfo
-    #build_util_linux
-    #cleaning_and_backup
+    build_gettext
+    build_bison
+    build_perl
+    build_python
+    build_texinfo
+    build_util_linux
+    cleaning_and_backup
 
-    #installing_basic_system
+    installing_basic_system
 
     # System configuration
 
-# TODO: descomentar en la versión final
     set +e
-    #stripping
-    #cleaning_up
+    stripping
+    cleaning_up
     set -e
 
-    #lfs_bootscript
+    lfs_bootscript
 
     # TODO: Managing Devices
     # p.e.: bash /usr/lib/udev/init-net-rules.sh
     #       cat /etc/udev/rules.d/70-persistent-net.rules
 
     # TODO: Parametrizar datos de red, teclado, etc.
-    #network_configuration
-    #system_v_bootscript
-    #system_clock_configuration
-    #keyboard_configuration
-    #profile_configuration
-    #inputrc_configuration
-    #shells_configuration
-
+    network_configuration
+    system_v_bootscript
+    system_clock_configuration
+    keyboard_configuration
+    profile_configuration
+    inputrc_configuration
+    shells_configuration
     system_bootable
 }
 
