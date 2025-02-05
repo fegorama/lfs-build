@@ -5,18 +5,19 @@
 # Name: Fernando Gonzalez Ruano
 # First LFS version: 12.2
 # Date: 2022-03-06
+# License: MIT
+# Based on the book "Linux From Scratch" by Gerard Beekmans
+# URL: http://www.linuxfromscratch.org/lfs/view/stable/
 
 set -e
 set -x
 
-# Global variables
-INSTALL_PATH="/lfs"
+INSTALL_PATH="/mnt/lfs"
 LFS_USER="lfs"
 LFS_VERSION="12.2"  # Cambia según la versión de LFS
 LOG_FILE="lfs-build.log"
 ACTION=""
 
-# Función para mostrar ayuda
 usage() {
     echo "Uso: $0 <buildtools|buildbase|builddist> -p <path_instalacion> -u <usuario> [-v <version>] [-h]"
     echo "  buildtools    Construir herramientas temporales"
@@ -31,7 +32,6 @@ usage() {
     exit 1
 }
 
-# Función para comprobar si se es root
 check_root() {
     if [ "$EUID" -ne 0 ]; then
         echo "Este script debe ejecutarse como root."
@@ -47,13 +47,11 @@ initialize() {
     chmod -v a+wt $LFS/sources
 }
 
-# Función para validar dependencias
 check_dependencies() {
     echo "Comprobando dependencias..."
     ./version-check.sh
 }
 
-# Función para descargar paquetes
 download_sources() {
     set +e
     echo "Descargando fuentes..."
@@ -65,9 +63,8 @@ download_sources() {
     set -e
 }
 
-# Función para configurar el entorno de construcción
 prepare_environment() {
-    echo "Preparando el entorno de construcción..."
+    echo "Preparing the build environment..."
     mkdir -pv $LFS/{etc,var} $LFS/usr/{bin,lib,sbin}
 
     for i in bin lib sbin; do
@@ -80,7 +77,7 @@ prepare_environment() {
         x86_64) mkdir -pv $LFS/lib64 ;;
     esac
 
-    echo "Creando usuario $LFS_USER..."
+    echo "Add user $LFS_USER..."
     if ! getent group lfs > /dev/null; then
         groupadd lfs || true
     fi    
@@ -102,7 +99,7 @@ EOF1
 EOF
 
     su - $LFS_USER << EOF
-echo "Creando fichero bashrc para $LFS_USER..."
+echo "Creating bashrc file for $LFS_USER..."
 cat > ~/.bashrc << EOF1
 set +h
 umask 022
@@ -118,9 +115,8 @@ EOF1
 EOF
 }
 
-# Función para construir herramientas temporales
 build_temporary_tools() {
-    echo "Construyendo herramientas temporales..."
+    echo "Building temporal utilities..."
     temp_binutils_pass1
     temp_gcc_pass1
     temp_linux_api_headers
@@ -691,9 +687,9 @@ echo "tester:x:101:" >> /etc/group
 install -o tester -d /home/tester
 
 clear
-echo "Ahora se va ejecutar un nuevo sheel para continuar con la construcción del sistema base."
+echo "A new shell will now be executed to continue building the base system."
 echo ""
-echo "Ejecute el script con la opción 'builddist' para continuar."
+echo "Run the script with the 'builddist' option to continue."
 echo ""
 
 exec /usr/bin/bash --login
@@ -708,16 +704,15 @@ creating_essential_files_links2() {
 
 notify_build_base() {
     clear
-    echo "Construcción de herramientas temporales completada."
+    echo "Temporary tools construction completed."
     echo ""
-    echo "Se pasa a modo chroot. Ejecute el script (desde el raíz) con la opción 'buildbase' para continuar."
+    echo "Entering chroot mode. Run the script (from root) with the 'buildbase' option to continue."
     echo ""
 }
 
-# Función para construir herramientas temporales
 buildtools() {
     initialize
-#TODO descomentar en la versión final.    
+#TODO uncomment in the final version    
     check_dependencies
     download_sources
     prepare_environment
@@ -727,11 +722,10 @@ buildtools() {
     build_temporary_tools_chroot
 }
 
-# Función para construir el sistema base
 buildbase() {
     create_directories
     creating_essential_files_links
-    echo "Instalación completada. Revisa el log en $LOG_FILE para más detalles."
+    echo "Installation complete. Review log in $LOG_FILE for more details."
 }
 
 build_gettext() {
@@ -808,12 +802,12 @@ cleaning_and_backup() {
     find /usr/{lib,libexec} -name \*.la -delete
     rm -rf /tools
 
-    #TODO: Backup de los archivos de configuración
-    #       parámetros: backup, restore y continue_after_backup
+    #TODO: Backup for configuration files
+    #       params: backup, restore and continue_after_backup
 }
 
 #package_management() {
-#    #TODO: Instalar gestor de paquetes
+#    #TODO: Install package manager
 #}
 
 install_man_pages() {
@@ -831,9 +825,9 @@ install_iana_etc() {
 
 install_glibc() {
     cd /sources/glibc-2.40
-    set +e # Se desactiva la opción de parada por error
+    set +e 
     patch -Np1 -i ../glibc-2.40-fhs-1.patch
-    set -e # Se activa la opción de parada por error
+    set -e 
 
     mv build build-pass-1
     mkdir -v build && cd build
@@ -846,16 +840,16 @@ install_glibc() {
              libc_cv_slibdir=/usr/lib
     make
 
-    set +e # Se desactiva la opción de parada por error
+    set +e 
     make check || false
-    grep "Timed out" $(find -name \*.out)  # TODO: Comprobar por qué se para aquí
-    set -e # Se activa la opción de parada por error
+    grep "Timed out" $(find -name \*.out)  # TODO: Verify why this is stopping the script
+    set -e 
     touch /etc/ld.so.conf
     sed '/test-installation/s@$(PERL)@echo not running@' -i ../Makefile
     make install
     sed '/RTLDLIST=/s@/usr@@g' -i /usr/bin/ldd
 
-    # Configuración de localización
+    # Localizations configuration
 
     localedef -i C -f UTF-8 C.UTF-8
     localedef -i cs_CZ -f UTF-8 cs_CZ.UTF-8
@@ -898,7 +892,7 @@ install_glibc() {
     localedef -i C -f UTF-8 C.UTF-8
     localedef -i ja_JP -f SHIFT_JIS ja_JP.SJIS 2> /dev/null || true
 
-    # Configuración de ficheros
+    # Files configuration
 
     cat > /etc/nsswitch.conf << "EOF"
 # Begin /etc/nsswitch.conf
@@ -918,7 +912,7 @@ rpc: files
 # End /etc/nsswitch.conf
 EOF
 
-    # Configuración de tiempo
+    # Time zone configuration
 
     tar -xf ../../tzdata2024a.tar.gz
 
@@ -936,12 +930,12 @@ EOF
     zic -d $ZONEINFO -p America/New_York
     unset ZONEINFO
 
-    # TODO: parametrizar
+    # TODO: parametrizing
 
     tzselect
     ln -sfv /usr/share/zoneinfo/Spain/Europe /etc/localtime
 
-    # Configuración de cargador dinámico
+    # Dinamic loader configuration
 
     cat > /etc/ld.so.conf << "EOF"
 # Begin /etc/ld.so.conf
@@ -1158,10 +1152,10 @@ install_binutils() {
              --with-system-zlib  \
              --enable-default-hash-style=gnu
     make tooldir=/usr
-    set +e # Se desactiva la opción de parada por error
+    set +e 
     make -k check
     grep '^FAIL:' $(find -name '*.log')
-    set -e # Se activa la opción de parada por error
+    set -e 
     make tooldir=/usr install
     rm -fv /usr/lib/lib{bfd,ctf,ctf-nobfd,gprofng,opcodes,sframe}.a
 }
@@ -1221,7 +1215,7 @@ install_attr() {
     make
     make check
     make install
-    # TODO: Comprobar si es necesario
+    # TODO: Verify if this is necessary
     # mv -v /usr/lib/libattr.so.* /lib
     # ln -sfv ../../lib/$(readlink /usr/lib/libattr.so) /usr/lib/libattr.so
 }
@@ -1291,7 +1285,7 @@ install_shadow() {
     make exec_prefix=/usr install
     make -C man install-man
 
-    # Configuración de ficheros
+    # Files configuration
     pwconv
     grpconv
     mkdir -p /etc/default
@@ -1345,22 +1339,22 @@ install_gcc() {
     echo 'int main(){}' > dummy.c
     cc dummy.c -v -Wl,--verbose &> dummy.log
     readelf -l a.out | grep ': /lib'
-    # TODO: Comprobar el siguiente resultado:
+    # TODO: test the following results:
     # [Requesting program interpreter: /lib64/ld-linux-x86-64.so.2]
     grep -E -o '/usr/lib.*/S?crt[1in].*succeeded' dummy.log
-    # TODO: Comprobar el siguiente resultado:
+    # TODO: test the following results:
     #/usr/lib/gcc/x86_64-pc-linux-gnu/14.2.0/../../../../lib/Scrt1.o succeeded
     # /usr/lib/gcc/x86_64-pc-linux-gnu/14.2.0/../../../../lib/crti.o succeeded
     # /usr/lib/gcc/x86_64-pc-linux-gnu/14.2.0/../../../../lib/crtn.o succeeded
     grep -B4 '^ /usr/include' dummy.log
-    # TODO: Comprobar el siguiente resultado:
+    # TODO: test the following results:
     # #include <...> search starts here:#include <...> search starts here:
     # /usr/lib/gcc/x86_64-pc-linux-gnu/14.2.0/include
     # /usr/local/include
     # /usr/lib/gcc/x86_64-pc-linux-gnu/14.2.0/include-fixed
     # /usr/include
     grep 'SEARCH.*/usr/lib' dummy.log |sed 's|; |\n|g'
-    # TODO: Comprobar resultados según lo establecido en LBS v12.2 - Chapter 8 - GCC-14.2.0
+    # TODO: test the following results:
     grep "/lib.*/libc.so.6 " dummy.log
     grep found dummy.log
     rm -v dummy.c a.out dummy.log
@@ -1475,7 +1469,7 @@ exit $value
 EOF
     make install
     ln -sv bash /usr/bin/sh
-    # TODO: Comprobar si es necesario
+    # TODO: verify if this is necessary
     # exec /usr/bin/bash --login
 }
 
@@ -1927,7 +1921,7 @@ install_vim() {
     done
     ln -sv ../vim/vim91/doc /usr/share/doc/vim-9.1.0660
 
-    # Configuración de vim
+    # vim configuration
     cat > /etc/vimrc << "EOF"
 " Begin /etc/vimrc
 
@@ -2312,14 +2306,14 @@ lfs_bootscript() {
 
 network_configuration() {
     cd /etc/sysconfig/
-    cat > ifconfig.eth0 << "EOF"
+    cat > ifconfig.ens18 << "EOF"
 ONBOOT=yes
-IFACE=eth0
+IFACE=ens18
 SERVICE=ipv4-static
 IP=10.0.2.100
 GATEWAY=10.0.2.1
 PREFIX=24
-BROADCAST=10.0.2..255
+BROADCAST=10.0.2.255
 EOF
 
     cat > /etc/resolv.conf << "EOF"
@@ -2400,14 +2394,24 @@ keyboard_configuration() {
     cat > /etc/sysconfig/console << "EOF"
 # Begin /etc/sysconfig/console
 
-KEYMAP="es-latin1"
+KEYMAP="es"
 KEYMAP_CORRECTIONS="euro2"
-FONT="lat0-16 -m 8859-15"
+FONT="lat0-16 -m C.UTF-8"
 UNICODE="1"
 
 # End /etc/sysconfig/console
 EOF
 
+    cat > /etc/sysconfig/keyboard << "EOF"
+# Begin /etc/sysconfig/keyboard
+
+KEYTABLE="es"
+MODEL="pc105+inet"
+LAYOUT="es"
+KEYBOARDTYPE="pc"
+
+# End /etc/sysconfig/keyboard
+EOF
 }
 
 profile_configuration() {
@@ -2517,9 +2521,10 @@ kernel_compilation() {
     make menuconfig
     make
     make modules_install
+    # Only if there is a /boot partition
     mount /boot
 
-    cp -iv arch/x86/boot/bzImage /boot/vmlinuz-6.10.5-lfs-12.2
+    cp -iv arch/x86_64/boot/bzImage /boot/vmlinuz-6.10.5-lfs-12.2
     cp -iv System.map /boot/System.map-6.10.5
     cp -iv .config /boot/config-6.10.5
     cp -r Documentation -T /usr/share/doc/linux-6.10.5
@@ -2582,7 +2587,6 @@ system_bootable() {
     last_step_release
 }
 
-# Función para continuar con la construcción del sistema base
 builddist() {
     touch /var/log/{btmp,lastlog,faillog,wtmp}
     chgrp -v utmp /var/log/lastlog
@@ -2612,7 +2616,7 @@ builddist() {
     # p.e.: bash /usr/lib/udev/init-net-rules.sh
     #       cat /etc/udev/rules.d/70-persistent-net.rules
 
-    # TODO: Parametrizar datos de red, teclado, etc.
+    # TODO: Parametrizing network data, keyboard, etc.
     network_configuration
     system_v_bootscript
     system_clock_configuration
@@ -2623,7 +2627,6 @@ builddist() {
     system_bootable
 }
 
-# Función principal
 main() {
     check_root
 
@@ -2639,7 +2642,6 @@ main() {
     fi
 }
 
-# Process arguments
 if [[ $# -lt 1 ]]; then
     usage
 fi
@@ -2662,7 +2664,6 @@ while getopts "p:u:v:h" opt; do
     esac
 done
 
-# Validar parámetros requeridos
 if [[ -z "$ACTION" || ( "$ACTION" != "buildtools" && "$ACTION" != "buildbase" && "$ACTION" != "builddist") ]]; then
     echo "Error: La primera opción debe ser 'buildtools', 'buildbase' o 'builddist'."
     usage
@@ -2673,5 +2674,4 @@ if [[ -z "$INSTALL_PATH" || -z "$LFS_USER" ]]; then
     usage
 fi
 
-# Ejecutar el script principal
 main | tee $LOG_FILE

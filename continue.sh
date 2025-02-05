@@ -1,5 +1,5 @@
 #/bin/bash
-export LFS=/lfs
+export LFS=/mnt/lfs
 
 chroot "$LFS" /usr/bin/env -i   \
 HOME=/root                  \
