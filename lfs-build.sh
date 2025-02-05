@@ -14,21 +14,21 @@ set -x
 
 INSTALL_PATH="/mnt/lfs"
 LFS_USER="lfs"
-LFS_VERSION="12.2"  # Cambia según la versión de LFS
+LFS_VERSION="12.2"
 LOG_FILE="lfs-build.log"
 ACTION=""
 
 usage() {
-    echo "Uso: $0 <buildtools|buildbase|builddist> -p <path_instalacion> -u <usuario> [-v <version>] [-h]"
-    echo "  buildtools    Construir herramientas temporales"
-    echo "  buildbase     Construir el sistema base para compilar LFS"
-    echo "  builddist     Construir el sistema base LFS"
-    echo "  -p            Path donde se instalará LFS"
-    echo "  -u            Usuario para la instalación inicial (primera fase) - se recomienda usar lfs"
-    echo "  -v            Versión de Linux From Scratch (por defecto: $LFS_VERSION)"
-    echo "  -h            Mostrar esta ayuda"
+    echo "Usage: $0 <buildtools|buildbase|builddist> -p <installation_path> -u <user> [-v <version>] [-h]"
+    echo "  buildtools    Build temporary tools"
+    echo "  buildbase     Build the base system to compile LFS"
+    echo "  builddist     Build the LFS base system"
+    echo "  -p            Path where LFS will be installed"
+    echo "  -u            User for the initial installation (first phase) - it is recommended to use lfs"
+    echo "  -v            Version of Linux From Scratch (default: $LFS_VERSION)"
+    echo "  -h            Show this help"
     echo ""
-    echo "Ejecutar este comando como root."
+    echo "Run this command as root."
     exit 1
 }
 
