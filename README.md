@@ -4,7 +4,7 @@ Automation script for creating a GNU/Linux distribution based on an initial syst
 
 ## Sintaxis
 
-Usage: $0 <buildtools|buildbase|builddist> -p <installation_path> -u <user> [-v <version>] [-h]
+Usage: lfs-build <buildtools|buildbase|builddist> -p <installation_path> -u <user> [-v <version>] [-h]
 
     buildtools    Build temporary tools
     buildbase     Build the base system to compile LFS
