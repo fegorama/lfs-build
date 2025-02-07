@@ -2,6 +2,11 @@
 
 Automation script for creating a GNU/Linux distribution based on an initial system following the book "Linux From Scratch" by Gerard Beekmans.
 
+## Links
+
+https://www.linuxfromscratch.org/lfs/view/stable/
+https://www.linuxfromscratch.org/blfs/view/stable/index.html
+
 ## Sintaxis
 
 Usage: lfs-build <buildtools|buildbase|builddist> -p <installation_path> -u <user> [-v <version>] [-h]
