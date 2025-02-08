@@ -310,8 +310,31 @@ install_openssh() {
   # TODO: Create a function to configure OpenSSH
 }
 
+install_sudo() {
+  cd /sources
+  tar xvf sudo-1.9.15p5.tar.gz && cd ./sudo-1.9.15p5
+
+  ./configure --prefix=/usr              \
+              --libexecdir=/usr/lib      \
+              --with-secure-path         \
+              --with-env-editor          \
+              --docdir=/usr/share/doc/sudo-1.9.15p5 \
+              --with-passprompt="[sudo] password for %p: " &&
+  make
+  make install
+
+  # Config sudo
+  cat > /etc/sudoers.d/00-sudo << "EOF"
+Defaults secure_path="/usr/sbin:/usr/bin"
+%wheel ALL=(ALL) ALL
+EOF
+
+  # TODO: If PAM is installed, install the pam configuration
+}
+
 security() {
-  install_openssh
+  #install_openssh
+  install_sudo
 }
 
 install_wget() {
@@ -328,7 +351,26 @@ network() {
   install_wget
 }
 
+create_user() {
+  echo "Creating user fegor"
+  groupadd forensics
+  useradd -m -g forensics -s /bin/bash fegor
+  usermod -aG wheel fegor
+  passwd fegor
+}
+
+continue_installation_banner() {
+  echo "For continue the installation, please restar our machine "
+  echo "with: 'exit' and 'shutdown -r now', select new distribution "
+  echo "partition and connect via SSH to the server: 'ssh fegor@<ip>' "
+  echo "and run the command: '/blfs-build.sh continue'" 
+}
+
 main () {
+  if [ "$1" == "continue" ]; then
+    # TODO: Continue the installation
+    echo "Continue the installation"
+  else
     #create_profile
     #inicialization_values
     #source /user_profile.sh
@@ -336,8 +378,11 @@ main () {
     #issue_config
     #number_random_generation
     
-    #security
-    network
+    security
+    #network
+    #create_user
+    continue_installation_banner
+  fi
 }
 
-main | tee $LOG_FILE
+main "$1" | tee $LOG_FILE
