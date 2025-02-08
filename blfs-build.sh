@@ -1,7 +1,9 @@
 #!/bin/bash
 
 set -e
+set -x
 
+NAME_DISTRIBUTION="FegorOS"
 LOG_FILE="blfs-build.log"
 
 # Config Bash Shell for BLFS
@@ -332,8 +334,10 @@ EOF
   # TODO: If PAM is installed, install the pam configuration
 }
 
-security() {
-  #install_openssh
+# Basic security configuration
+
+basic_security() {
+  install_openssh
   install_sudo
 }
 
@@ -347,8 +351,69 @@ install_wget() {
   make install
 }
 
-network() {
+# Basic network configuration
+
+basic_network() {
   install_wget
+}
+
+# File system configuration
+
+install_efivar() {
+  cd /sources
+  tar xvf efivar-39.tar.gz && cd ./efivar-39
+
+  make 
+  sudo make install LIBDIR=/usr/lib
+}
+
+install_efibootmgr() {
+  cd /sources
+  tar xvf efibootmgr-18.tar.gz && cd ./efibootmgr-18
+
+  make EFIDIR=LFS EFI_LOADER=grubx64.efi
+  sudo make install EFIDIR=${NAME_DISTRIBUTION}
+}
+
+install_grub() {
+  cd /sources
+  tar xvf grub-2.12.tar.xz && cd ./grub-2.12
+
+  sudo mkdir -pv /usr/share/fonts/unifont 
+  sudo gunzip -c ../unifont-15.1.05.pcf.gz | sudo tee /usr/share/fonts/unifont/unifont.pcf > /dev/null
+
+  echo depends bli part_gpt > grub-core/extra_deps.lst
+
+  ./configure --prefix=/usr        \
+              --sysconfdir=/etc    \
+              --disable-efiemu     \
+              --enable-grub-mkfont \
+              --with-platform=efi  \
+              --target=x86_64      \
+              --disable-werror     &&
+  unset TARGET_CC &&
+  make
+
+  # If you've skip the LFS GRUB package, as the root user...
+  sudo make install
+  sudo mv -v /etc/bash_completion.d/grub /usr/share/bash-completion/completions
+
+  # If you've not skip LFS GRUB package, as the root user, only install the components not installed from the LFS GRUB package instead...
+  #sudo make DESTDIR=$PWD/dest install
+  #sudo cp -av dest/usr/lib/grub/x86_64-efi -T /usr/lib/grub/x86_64-efi
+  #sudo cp -av dest/usr/share/grub/*.{pf2,h}   /usr/share/grub
+  #sudo cp -av dest/usr/bin/grub-mkfont        /usr/bin
+
+  # If the optional dependencies are installed, also install the grub-mount program
+  #cp -av dest/usr/bin/grub-mount /usr/bin
+}
+
+file_systems_configuration() {
+  # TODO: Uncomment in the final version
+  # Only for 64-bit systems, Don't install on 32-bit systems
+  #install_efivar
+  install_efibootmgr
+  install_grub
 }
 
 create_user() {
@@ -357,6 +422,42 @@ create_user() {
   useradd -m -g forensics -s /bin/bash fegor
   usermod -aG wheel fegor
   passwd fegor
+  chown -R fegor:forensics /sources/
+}
+
+install_mandoc() {
+  cd /sources
+  tar xvf mandoc-1.14.6.tar.gz && cd ./mandoc-1.14.6
+
+  ./configure && make mandoc
+
+  sudo install -vm755 mandoc   /usr/bin &&
+  sudo install -vm644 mandoc.1 /usr/share/man/man1
+}
+
+install_popt() {
+  cd /sources
+  tar xvf popt-1.19.tar.gz && cd ./popt-1.19
+
+  ./configure --prefix=/usr --disable-static &&
+  make
+
+  # If Doxygen-1.12.0 is installed, install the API documentation
+  #sed -i 's@\./@src/@' Doxyfile &&
+  #doxygen
+
+  sudo make install
+
+  # If you built the API documentation, install it
+  #sudo install -v -m755 -d /usr/share/doc/popt-1.19 &&
+  #sudo install -v -m644 doxygen/html/* /usr/share/doc/popt-1.19
+}
+
+install_utils() {
+  echo "Installing utils"
+  # TODO: uncomment in the final version
+  #install_mandoc
+  #install_popt
 }
 
 continue_installation_banner() {
@@ -368,9 +469,10 @@ continue_installation_banner() {
 
 main () {
   if [ "$1" == "continue" ]; then
-    # TODO: Continue the installation
-    echo "Continue the installation"
+    install_utils
+    file_systems_configuration
   else
+    # TODO: uncomment in the final version
     #create_profile
     #inicialization_values
     #source /user_profile.sh
@@ -378,8 +480,8 @@ main () {
     #issue_config
     #number_random_generation
     
-    security
-    #network
+    #basic_security
+    #basic_network
     #create_user
     continue_installation_banner
   fi

@@ -1,3 +1,9 @@
 bc04ff77796758c0b37bd0bc9314cd3f openssh-9.8p1.tar.gz
 271bf949384d0858c2c3d419f6311365 wget/wget-1.24.5.tar.gz
 4166279cb188ecb6641c7a2ba5f68270 sudo-1.9.15p5.tar.gz
+f0adf24e8fdef5f3e332191f653e422a mandoc-1.14.6.tar.gz
+a8fc3e79336cd6e738ab44f9bc96a5aa efivar-39.tar.gz
+eaa2135fddb6eb03f2c87ee1823e5a78 popt-1.19.tar.gz
+e170147da25e1d5f72721ffc46fe4e06 efibootmgr-18.tar.gz
+60c564b1bdc39d8e43b3aab4bc0fb140 grub-2.12.tar.xz
+da47e9c7a2cec3b68a0fad5d2a341dcc font-builds/unifont-15.1.05.pcf.gz

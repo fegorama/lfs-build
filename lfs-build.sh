@@ -712,7 +712,6 @@ notify_build_base() {
 
 buildtools() {
     initialize
-#TODO uncomment in the final version    
     check_dependencies
     download_sources
     prepare_environment

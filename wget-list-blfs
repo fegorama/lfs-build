@@ -1,3 +1,9 @@
 https://anduin.linuxfromscratch.org/BLFS/blfs-bootscripts/blfs-bootscripts-20240416.tar.xz
 https://ftp.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-9.8p1.tar.gz
 https://www.sudo.ws/dist/sudo-1.9.15p5.tar.gz
+https://github.com/rhboot/efivar/archive/39/efivar-39.tar.gz
+https://mandoc.bsd.lv/snapshots/mandoc-1.14.6.tar.gz
+http://ftp.rpm.org/popt/releases/popt-1.x/popt-1.19.tar.gz
+https://github.com/rhboot/efibootmgr/archive/18/efibootmgr-18.tar.gz
+https://ftp.gnu.org/gnu/grub/grub-2.12.tar.xz
+https://unifoundry.com/pub/unifont/unifont-15.1.05/font-builds/unifont-15.1.05.pcf.gz
